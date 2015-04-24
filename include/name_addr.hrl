@@ -1,0 +1,1 @@
+-record(name_addr, {name=undefined, addr}).

@@ -1,0 +1,14 @@
+{application, rfc2822,
+ [
+  {description, "An Erlang rfc2822 library"},
+  {vsn, "1"},
+  {modules, [
+             rfc2822
+            ]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.

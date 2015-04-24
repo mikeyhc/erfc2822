@@ -1,0 +1,12 @@
+-record(calender_time, {year=1900,
+                        month=january,
+                        day=1,
+                        hour=0,
+                        min=0,
+                        sec=0,
+                        pico=0,
+                        week_day=monday,
+                        year_day=0,
+                        tz_name=undefined,
+                        tz_diff=0,
+                        is_dst=false}).
