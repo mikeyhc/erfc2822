@@ -713,6 +713,7 @@ zone(X) ->
 
 %% parse a single 'mailbox' or and address 'group' and return the
 %% address(es).
+-spec address(<<_:24,_:_*8>>) -> {<<_:16,_:_*8>>, binary()}.
 address(X) ->
     F = fun(Y) ->
                 {H, T} = mailbox(Y),
@@ -721,6 +722,7 @@ address(X) ->
     parserlang:orparse([F, {rfc2822, group}], X, "address").
 
 %% parse a 'name_addr' or and 'addr_spec'  and return the address.
+-spec mailbox(<<_:24,_:_*8>>) -> {name_addr(), binary()}.
 mailbox(X) ->
     F = fun(Y) ->
                 {H, T} = addr_spec(Y),
@@ -730,6 +732,7 @@ mailbox(X) ->
 
 %% parse an 'angle_addr', optionally prefaced with a 'display_name',
 %% and return the address
+-spec name_addr(<<_:48,_:_*8>>) -> {name_addr(), binary()}.
 name_addr(X) ->
     try
         {Name, T1} = maybe_option(fun display_name/1, X),
@@ -740,6 +743,7 @@ name_addr(X) ->
     end.
 
 %% parse and 'angle_addr' or and 'obs_angle_addr' and return the address.
+-spec angle_addr(<<_:48,_:_*8>>) -> {<<_:32,_:_*8>>, binary()}.
 angle_addr(X) ->
     AngleAddr = fun(Y) ->
                         {_, T1} = parserlang:char($<, Y),
@@ -758,6 +762,7 @@ angle_addr(X) ->
 %% 1> group(<<"my group: user1@example.org, user2@example.org;">>).
 %% [#name_addr{name=undefined, addr=<<"user1@example.org">>},
 %%  #name_addr{name=undefined, addr=<<"user2@example.org">>}]
+-spec group(<<_:16,_:_*8>>) -> {[name_addr()], binary()}.
 group(X) ->
     try
         {_, T1} = display_name(X),
@@ -770,6 +775,7 @@ group(X) ->
     end.
 
 %% parse and return a 'phrase'.
+-spec display_name(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 display_name(X) ->
     try
         {H, T} = unfold(fun(Y) -> phrase(Y) end, X),
@@ -781,9 +787,10 @@ display_name(X) ->
 
 %% parse a list of 'mailbox' addresses, every two addresses being seperated
 %% by a comma, and return the list of found addresses.
+-spec mailbox_list(binary()) -> {[binary()], binary()}.
 mailbox_list(X) ->
     Mailbox = fun(Y) -> mailbox(Y) end,
-    Comma = fun(Y) -> parserlang:char($:, Y) end,
+    Comma = fun(Y) -> parserlang:char($,, Y) end,
     try
         parserlang:sepby(Mailbox, Comma, X)
     catch
@@ -793,9 +800,10 @@ mailbox_list(X) ->
 
 %% parse a list of 'address' addresses, every two addresses being seperated
 %% by a comma, and return the list of found addresses.
+-spec address_list(binary()) -> {[binary()], binary()}.
 address_list(X) ->
     Address = fun(Y) -> address(Y) end,
-    Comma = fun(Y) -> parserlang:char($:, Y) end,
+    Comma = fun(Y) -> parserlang:char($,, Y) end,
     try
         parserlang:sepby(Address, Comma, X)
     catch
@@ -810,6 +818,7 @@ address_list(X) ->
 %% parse an "address specification". that is a 'local_part', followed by
 %% an "@" character, followed by a 'domain'. Return the complete address
 %% as 'String', ignoring any whitespace or commments.
+-spec addr_spec(<<_:24,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.
 addr_spec(X) ->
     try
         {R1, T1} = local_part(X),
@@ -823,6 +832,7 @@ addr_spec(X) ->
 
 %% parse and return a "local part" of an 'addr_spec'. That is either a
 %% 'dot_atom' or a 'quoted_string'.
+-spec local_part(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 local_part(X) ->
     parserlang:orparse([{rfc2822, obs_local_part},
                         {rfc2822, dot_atom},
@@ -830,6 +840,7 @@ local_part(X) ->
 
 %% parse and return a "domain part" or an 'addr_spec'. That is either a
 %% 'dot_atom' or a 'domain_literal'.
+-spec domain(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 domain(X) ->
     parserlang:orparse([{rfc2822, obs_domain},
                         {rfc2822, dot_atom},
@@ -839,6 +850,7 @@ domain(X) ->
 %% parse a "domain literal". That is a "[" character, followed by any
 %% amount of 'dcontent', followed by a terminating "]" character.
 %% The complete string is returned verbatim.
+-spec domain_literal(<<_:16,_:_*8>>) -> {<<_:16,_:_*8>>, binary()}.
 domain_literal(X) ->
     DContent = fun(Y) ->
                        {_, T1} = parserlang:optional(fun fws/1, Y),
@@ -859,23 +871,25 @@ domain_literal(X) ->
 
 %% parse and return any characters that are legal in a 'domain_literal'.
 %% That is 'dtext' or a 'quoted_pair'.
+-spec dcontent(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 dcontent(X) ->
     F = fun(Y) -> parserlang:many1(fun dtext/1, Y) end,
     parserlang:orparse([F, {rfc2822, quoted_pair}], X,
                        "domain literal content").
 
 %% parse and return any ASCII characters except "[", "]" and "\".
+-spec dtext(<<_:8,_:_*8>>) -> {byte(), binary()}.
 dtext(X) ->
     ErrStr = "any ASCII character (excluding '[', ']' and '\\')",
     Err= {parse_error, expected, ErrStr},
     F = fun(Y) when is_binary(Y) ->
                 <<H, T/binary>> = Y,
                 if H >= 33 andalso H =< 90 orelse
-                   H >= 94 andalso H =< 126 -> {<<H>>, T};
+                   H >= 94 andalso H =< 126 -> {H, T};
                    true -> throw(Err)
                 end
         end,
-    parserlang:orparse([F, {rfc2822, no_ws_ctl}], X, ErrStr).
+    parserlang:orparse([F, fun no_ws_ctl/1], X, ErrStr).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Overall Message Syntax (section 3.5) %%%
@@ -896,6 +910,7 @@ dtext(X) ->
 %% If you want to implement a really strict parser, you'll have to put
 %% the appropriate parser together yourself. You'll find this is rather
 %% easy to do. Refer to the 'fields' parser for further details.
+-spec message(binary()) -> message().
 message(X) ->
     Body = fun(Y) ->
                    {_, T1} = rfc2234:crlf(Y),
@@ -906,6 +921,7 @@ message(X) ->
     #message{fields=F, body=B}.
 
 %% a message body is just an unstructured sequence of characters.
+-spec body(binary()) -> {binary(), binary()}.
 body(X) -> {X, <<>>}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -918,6 +934,7 @@ body(X) -> {X, <<>>}.
 %%
 %% If you look at this parser you will find that it will attempt all
 %% other fields before falling back to a 'optional_field'.
+-spec fields(binary()) -> {{atom(), any()}, binary()}.
 fields(X) ->
     Options = fun(Y) ->
                       parserlang:orparse(
@@ -934,7 +951,10 @@ fields(X) ->
     parserlang:many(Options, X).
 
 %% helper fuction to construct lambdas
+-spec field_helper(atom()) -> {{atom(), any()}, binary()}.
 field_helper(X) -> field_helper(X, X).
+
+-spec field_helper(atom(), atom()) -> {{atom(), any()}, binary()}.
 field_helper(Type, F) ->
     fun(X) ->
             {H, T} = rfc2822:F(X),
@@ -947,6 +967,7 @@ field_helper(Type, F) ->
 
 %% parse a "date" header line and return the date it contains as a
 %% 'calender_time'.
+-spec orig_date(<<_:64,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 orig_date(X) -> header("Date", fun date_time/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -955,14 +976,17 @@ orig_date(X) -> header("Date", fun date_time/1, X).
 
 %% parse a "from" header line and return the 'mailbox_list'
 %% address(es) contained in it.
+-spec from(<<_:64,_:_*8>>) -> {[binary()], binary()}.
 from(X) -> header("From", fun mailbox_list/1, X).
 
 %% parse a "sender" header line and return the 'mailbox' address
 %% contained in it.
+-spec sender(<<_:80,_:_*8>>) -> {binary(), binary()}.
 sender(X) -> header("Sender", fun mailbox/1, X).
 
 %% parse a "reply-to" header line and return the 'address_list'
 %% addres(es) contained in it.
+-spec reply_to(<<_:88,_:_*8>>) -> {binary(), binary()}.
 reply_to(X) -> header("Reply-to", fun address_list/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -971,14 +995,17 @@ reply_to(X) -> header("Reply-to", fun address_list/1, X).
 
 %% parse a "to" header line and return the 'address_list'
 %% address(es) contained in it.
+-spec to(<<_:48,_:_*8>>) -> {binary(), binary()}.
 to(X) -> header("To", fun address_list/1, X).
 
 %% parse a "cc" header line and return the 'address_list'
 %% address(es) contained in it.
+-spec cc(<<_:48,_:_*8>>) -> {binary(), binary()}.
 cc(X) -> header("Cc", fun address_list/1, X).
 
 %% parse a "bcc" header line and return the 'address_list'
 %% address(es) contained in it.
+-spec bcc(<<_:56,_:_*8>>) -> {binary(), binary()}.
 bcc(X) ->
     F = fun(Y) ->
                 {_, T} = parserlang:optional(fun cfws/1, Y),
@@ -992,16 +1019,19 @@ bcc(X) ->
 
 %% parse a "message-id" header line and return the 'msg_id' contained
 %% in it.
+-spec message_id(<<_:104,_:_*8>>) -> {binary(), binary()}.
 message_id(X) -> header("Message-ID", fun msg_id/1, X).
 
 %% parse a "in-reply-to" header line and return the list of 'msg_id's
 %% contained in it.
+-spec in_reply_to(<<_:112,_:_*8>>) -> {binary(), binary()}.
 in_reply_to(X) ->
     F = fun(Y) -> parserlang:many1(fun msg_id/1, Y) end,
     header("In-Reply-To", F, X).
 
 %% parse a "references" header line and return the lists of 'msg_id's
 %% contained in it.
+-spec references(<<_:104,_:_*8>>) -> {binary(), binary()}.
 references(X) ->
     F = fun(Y) -> parserlang:many1(fun msg_id/1, Y) end,
     header("References", F, X).
@@ -1009,13 +1039,15 @@ references(X) ->
 %% parse a "message id" and return it. A message is almost identical
 %% to an 'angle_addr' but with stricter rules about folding and
 %% whitespace.
+-spec msg_id(<<_:24,_:_*8>>) -> {binary(), binary()}.
 msg_id(X) ->
     F = fun(Y) ->
                 {_, T1} = parserlang:char($<, Y),
                 {IDL, T2} = id_left(T1),
                 {_, T3} = parserlang:char($@, T2),
                 {IDR, T4} = id_right(T3),
-                {<<$<, IDL/binary, $@, IDR/binary, $>>>, T4}
+                {_, T5} = parserlang:char($>, T4),
+                {<<$<, IDL/binary, $@, IDR/binary, $>>>, T5}
         end,
     try
         unfold(F, X)
@@ -1027,6 +1059,7 @@ msg_id(X) ->
 %% parse a "left ID" part of a 'msg_id'. This is almost identical to the
 %% 'local_part' or an email address, but with stricter rules about folding
 %% and whitespace.
+-spec id_left(binary()) -> {binary(), binary()}.
 id_left(X) -> parserlang:orparse([{rfc2822, dot_atom_text},
                                   {rfc2822, no_fold_quote}],
                                  X, "left part of message ID").
@@ -1034,12 +1067,14 @@ id_left(X) -> parserlang:orparse([{rfc2822, dot_atom_text},
 %% parse a "right ID" part of a 'msg_id'. This is almost identical to the
 %% 'domain' of an email address, but with stricter rules about folding and
 %% whitespace.
+-spec id_right(binary()) -> {binary(), binary()}.
 id_right(X) -> parserlang:orparse([{rfc2822, dot_atom_text},
                                    {rfc2822, no_fold_literal}],
                                    X, "right part of mesasge ID").
 
 %% parse one or more occurances of 'qtext' or 'quoted_pair' and return the
 %% concatenated string. this makes up the 'id_left' of a 'msg_id'.
+-spec no_fold_quote(<<_:24,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.
 no_fold_quote(X) ->
     ManyQText = fun(Y) -> parserlang:many1(fun qtext/1, Y) end,
     F = fun(Y) -> parserlang:option([ManyQText, {rfc2822, quoted_pair}],
@@ -1057,6 +1092,7 @@ no_fold_quote(X) ->
 
 %% parse one or more occurances of 'dtext' or 'quoted_pair' and return
 %% the concatenated string. this makes up the 'id_right' of a 'msg_id'.
+-spec no_fold_literal(<<_:24,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.
 no_fold_literal(X) ->
     ManyDText = fun(Y) -> parserlang:many1(fun dtext/1, Y) end,
     F = fun(Y) -> parserlang:option([ManyDText, {rfc2822, quoted_pair}],
@@ -1079,16 +1115,19 @@ no_fold_literal(X) ->
 %% parse a "subject" header line and return its contents verbatim. Please note
 %% that all whitespace and/or comments are preserved, i.e the result of
 %% parsing "subject: foo" is " foo", not "foo".
+-spec subject(<<_:80,_:_*8>>) -> {binary(), binary()}.
 subject(X) -> header("subject", fun unstructured/1, X).
 
 %% parse a "comments" header line and return its contents verbatim. Please
 %% noe that all whitespace and/or comments are preserved, i.e the result of
 %% parsing "comments: foo" is " foo", not "foo".
+-spec comments(<<_:88,_:_*8>>) -> {binary(), binary()}.
 comments(X) -> header("comments", fun unstructured/1, X).
 
 %% parse a "keywords" header line and return the list of 'phrase's found.
 %% Please note that each phrase is again a list of 'atom's, as returned by
 %% the 'phrase' parser.
+-spec keywords(<<_:80,_:_*8>>) -> {[binary()], binary()}.
 keywords(X) ->
     Phrases = fun(Y) ->
                       {_, T1} = parserlang:char($,, Y),
@@ -1107,26 +1146,32 @@ keywords(X) ->
 
 %% parse a "resent-date" header line and return the date it contains as a
 %% 'calender_time'.
+-spec resent_date(<<_:112,_:_*8>>) -> {binary(), binary()}.
 resent_date(X) -> header("Resent-Date", fun date_time/1, X).
 
 %% parse a "resent-from" header line and return the 'mailbox_list'
 %% address(es) contained in it.
+-spec resent_from(<<_:112,_:_*8>>) -> {[binary()], binary()}.
 resent_from(X) -> header("Resent-From", fun mailbox_list/1, X).
 
 %% parse a "resent-sender" header line and return the 'mailbox' address
 %% contained in it.
+-spec resent_sender(<<_:128,_:_*8>>) -> {binary(), binary()}.
 resent_sender(X) -> header("Resent-Sender", fun mailbox/1, X).
 
 %% parse a "resent-to" header line and return the 'address_list'
 %% address(es) contained in it.
+-spec resent_to(<<_:96,_:_*8>>) -> {[binary()], binary()}.
 resent_to(X) -> header("Resent-To", fun address_list/1, X).
 
 %% parse a "resent-cc" header line and return the 'address_list'
 %% address(es) contained in it.
+-spec resent_cc(<<_:96,_:_*8>>) -> {[binary()], binary()}.
 resent_cc(X) -> header("Resent-Cc", fun address_list/1, X).
 
 %% parse a "resent-bcc" header line and return the 'address_list'
 %% address(es) contained in it. (This list may be empty.)
+-spec resent_bcc(<<_:104,_:_*8>>) -> {[binary()], binary()}.
 resent_bcc(X) ->
     BccText = fun(Y) ->
                       {_, T1} = parserlang:optional(fun cfws/1, Y),
@@ -1140,6 +1185,7 @@ resent_bcc(X) ->
 
 %% parse a "resent-message-id" header line and return the 'msg_id'
 %% contained in it.
+-spec resent_msg_id(<<_:160,_:_*8>>) -> {binary(), binary()}.
 resent_msg_id(X) -> header("resent-message-id", fun msg_id/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1148,10 +1194,12 @@ resent_msg_id(X) -> header("resent-message-id", fun msg_id/1, X).
 
 %% parse a "return-path" header line and return the 'path' contained
 %% in it.
+-spec return_path(<<_:112,_:_*8>>) -> {binary(), binary()}.
 return_path(X) -> header("Return-Path", fun path/1, X).
 
 %% parse a "path spec". A path is an optional addr_spec between "<"
 %% and ">"
+-spec path(binary()) -> {binary(), binary()}.
 path(X) ->
     PathText = fun(Y) ->
                        {_, T1} = parserlang:char($<, Y),
@@ -1164,6 +1212,8 @@ path(X) ->
 
 %% parse a "received" header line and returns the 'name_val_list'
 %% followed by 'date_time' contained in it.
+-spec received(<<_:88,_:_*8>>)
+      -> {{[{binary(), binary()}], binary()}, binary()}.
 received(X) ->
     F = fun(Y) ->
                 {R1, T1} = name_val_list(Y),
@@ -1175,6 +1225,7 @@ received(X) ->
 
 %% parse a "name_val_list", this is just a collection of 'name_val_pair's
 %% optionally prefaced by 'cfws'.
+-spec name_val_list(<<_:24,_:_*8>>) -> {[{binary(), binary()}], binary()}.
 name_val_list(X) ->
     try
         {_, T1} = parserlang:optional(fun cfws/1, X),
@@ -1186,6 +1237,8 @@ name_val_list(X) ->
 
 %% parse a "name_val_pair", thjis is an 'item_name', followed by 'cwfs'
 %% and then an 'item_value'.
+-spec name_val_pair(<<_:24,_:_*8>>)
+      -> {{<<_:8,_:_*8>>, <<_:8,_:_*8>>}, binary()}.
 name_val_pair(X) ->
     try
         {R1, T1} = item_name(X),
@@ -1199,6 +1252,7 @@ name_val_pair(X) ->
 
 %% parse a "item_name", this starts with an 'alpha' followed by any
 %% number of 'alpha', digit or "-".
+-spec item_name(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 item_name(X) ->
     Choice = parserlang:choice([fun(Y) -> parserlang:char($-, Y) end,
                                 fun rfc2234:alpha/1,
@@ -1215,6 +1269,7 @@ item_name(X) ->
 
 %% parse a "item_value", this can be either a a collection of 'angle_addr',
 %% a addr_spec, a domain, a message id or an atom.
+-spec item_value(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 item_value(X) ->
     ManyAngle = fun(Y) -> parserlang:many1(fun angle_addr/1, Y) end,
     Choice = parserlang:choice([ManyAngle,
@@ -1232,6 +1287,7 @@ item_value(X) ->
 %% parse an arbitrary header field and return a tuple containing the
 %% 'field_name' and 'unstructured' text of the header. The name will
 %% *not* contain the terminating colon.
+-spec optional_field(<<_:32,_:_*8>>) -> {{<<_:8,_:_*8>>, binary()}, binary()}.
 optional_field(X) ->
     try
         {N, T1} = field_name(X),
@@ -1247,6 +1303,7 @@ optional_field(X) ->
 
 %% parse and return an arbitrary header field name. that is one or more
 %% 'ftext' characters.
+-spec field_name(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 field_name(X) ->
     try
         parserlang:many1(fun ftext/1, X)
@@ -1259,6 +1316,7 @@ field_name(X) ->
 
 %% match and return any ASCII character except for control characters,
 %% whitespace and ":"
+-spec ftext(<<_:8,_:_*8>>) -> {33..57 | 59..126, binary()}.
 ftext(X) when is_binary(X) ->
     <<H, T/binary>> = X,
     if H >= 33 andalso H =< 57 orelse
@@ -1274,6 +1332,7 @@ ftext(X) when is_binary(X) ->
 %% Match the obsolete "quoted pair" syntax, which - unlike 'quoted_pair'
 %% - allowed *any* ASCII character to be specified when quoted. This
 %% parser will return both the backslash and the actual character.
+-spec obs_qp(<<_:16,_:_*8>>) -> {<<_:16>>, binary()}.
 obs_qp(X) when is_binary(X) ->
     Err = {parse_error, expected, "any quoted US-ASCII character"},
     try
@@ -1291,6 +1350,7 @@ obs_qp(X) when is_binary(X) ->
 %% "carriage returns" and "line feeds". This is really weird; you better
 %% consult the RFC for details. The parser will return the complete string,
 %% including those special characters.
+-spec obs_text(binary()) -> {binary(), binary()}.
 obs_text(X) ->
     F = fun(Y) ->
                 {R1, T1} = obs_char(Y),
@@ -1305,6 +1365,7 @@ obs_text(X) ->
 
 %% match and return the obsolete "char" syntax, whicch - unlike 'character'
 %% - did not allow "carriage return" and "line feed".
+-spec obs_char(<<_:8,_:_*8>>) -> {0..9 | 11..12 | 14..127, binary()}.
 obs_char(X) when is_binary(X) ->
     Err = {parse_error, expected, "any ASCII character except CR and LF"},
     try
@@ -1321,10 +1382,12 @@ obs_char(X) when is_binary(X) ->
 
 %% match and return the obsolete "utext" syntax, which is identical to
 %% 'obs_text'.
+-spec obs_utext(binary()) -> {binary(), binary()}.
 obs_utext(X) -> obs_text(X).
 
 %% match the obsolete "phrase" syntax, which - unlike 'phrase' - allows
 %% dots between tokens.
+-spec obs_phrase(binary()) -> {binary(), binary()}.
 obs_phrase(X) ->
     Choice = parserlang:choice([fun word/1,
                                 fun(Y) -> parserlang:char($., Y) end,
@@ -1338,6 +1401,7 @@ obs_phrase(X) ->
 %% match a "phrase list" syntax and return the list of 'string's that make
 %% up the phrase. In contrast to a 'phrase', the 'obs_phrase_list'
 %% seperates individual words by commas.
+-spec obs_phrase_list(binary()) -> {binary(), binary()}.
 obs_phrase_list(X) ->
     ManyPhrase = fun(Y) ->
                          {R, T1} = parserlang:option(<<>>,
@@ -1361,6 +1425,7 @@ obs_phrase_list(X) ->
 %% parse and return an "obsolete fws" token. That is at least one 'wsp'
 %% character, followed by and arbitrary number (including zero) of 'crlf'
 %% followed by at least one more 'wsp' character.
+-spec obs_fws(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 obs_fws(X) ->
     F = fun(Y) ->
                 {R1, T1} = rfc2234:crlf(Y),
@@ -1376,6 +1441,7 @@ obs_fws(X) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'day_name' but allow for the obsolete folding syntax
+-spec obs_day_of_week(<<_:24,_:_*8>>) -> {dow(), binary()}.
 obs_day_of_week(X) ->
     try
         unfold(fun day_name/1, X)
@@ -1386,6 +1452,7 @@ obs_day_of_week(X) ->
 
 %% parse a 'year' but allow for a two-digit number (obsolete) and the
 %% obsolete folding syntax.
+-spec obs_year(<<_:16,_:_*8>>) -> {integer(), binary()}.
 obs_year(X) ->
     F = fun(Y) ->
                 {R1, T1} = parserlang:manyN(2, fun rfc2234:digit/1, Y),
@@ -1402,6 +1469,7 @@ obs_year(X) ->
     end.
 
 %% parse a 'month_name' but allow for the obsolete folding syntax.
+-spec obs_month(<<_:24,_:_*8>>) -> {month(), binary()}.
 obs_month(X) ->
     try
         parserlang:between(fun cfws/1, fun cfws/1, fun month_name/1, X)
@@ -1411,6 +1479,7 @@ obs_month(X) ->
     end.
 
 %% parse a 'day' but allow for the obsolete folding syntax
+-spec obs_day(<<_:8,_:_*8>>) -> {integer(), binary()}.
 obs_day(X) ->
     try
         unfold(fun day_of_month/1, X)
@@ -1420,6 +1489,7 @@ obs_day(X) ->
 
 
 %% parse a 'hour' but allow for obsolete folding syntax.
+-spec obs_hour(<<_:8,_:_*8>>) -> {integer(), binary()}.
 obs_hour(X) ->
     try
         unfold(fun hour/1, X)
@@ -1428,6 +1498,7 @@ obs_hour(X) ->
     end.
 
 %% parse a 'minute' but allow for obsolete folding syntax
+-spec obs_minute(<<_:8,_:_*8>>) -> {integer(), binary()}.
 obs_minute(X) ->
     try
         unfold(fun minute/1, X)
@@ -1437,6 +1508,7 @@ obs_minute(X) ->
     end.
 
 %% parse a 'second' but allow for the obsolete folding syntax
+-spec obs_second(<<_:8,_:_*8>>) -> {integer(), binary()}.
 obs_second(X) ->
     try
         unfold(fun second/1, X)
@@ -1446,6 +1518,7 @@ obs_second(X) ->
     end.
 
 %% match the obsolete zone names and return the appropriate offset
+-spec obs_zone(<<_:16,_:_*8>>) -> {integer(), binary()}.
 obs_zone(X) ->
     MkZone = fun(N, O) ->
                      NB = binary:list_to_bin(N),
@@ -1500,6 +1573,7 @@ obs_zone(X) ->
 %%
 %% 1> obs_angle_addr(<<"<@example1.org,@example2.org:joe@example.org>">>).
 %% {<<"<joe@example.org>">>, <<>>}
+-spec obs_angle_addr(<<_:40,_:_*8>>) -> {<<_:40,_:_*8>>, binary()}.
 obs_angle_addr(X) ->
     F = fun(Y) ->
                 {_, T1} = parserlang:char($<, Y),
@@ -1518,6 +1592,7 @@ obs_angle_addr(X) ->
 %% this parser parses the "route" part of 'obs_angle_addr' and returns
 %% the list of 'string's that make up this route. Relies one
 %% 'obs_domain_list' for the actual parsing.
+-spec obs_route(<<_:8,_:_*8>>) -> {[<<_:24,_:_*8>>], binary()}.
 obs_route(X) ->
     F = fun(Y) ->
                 {R, T1} = obs_domain_list(Y),
@@ -1535,6 +1610,7 @@ obs_route(X) ->
 %% This parser parses a list of domain names, each of them prefaced with an
 %% "@". Multiple names are seperated by a comma. The list of 'domain's is
 %% returned - and may be empty.
+-spec obs_domain_list(<<_:8,_:_*8>>) -> {[binary(), ...], binary()}.
 obs_domain_list(X) ->
     Comma = fun(Y) -> parserlang:string(<<",">>, Y) end,
     F = fun(Y) ->
@@ -1552,6 +1628,7 @@ obs_domain_list(X) ->
 %% parse the obsolete syntax of a 'local_part', which allowed for more
 %% liberal insertion of folding whitespace and comments. The actual
 %% string is returned.
+-spec obs_local_part(binary()) -> {binary(), binary()}.
 obs_local_part(X) ->
     F = fun(Y) ->
                 {_, T1} = parserlang:char($., Y),
@@ -1565,6 +1642,7 @@ obs_local_part(X) ->
 %% parse the obsolete syntax of a 'domain', which allowed for more
 %% liberal insertion of folding whitespace and comments. The actual string
 %% is returned.
+-spec obs_domain(binary()) -> {binary(), binary()}.
 obs_domain(X) ->
     F = fun(Y) ->
                 {_, T1} = parserlang:char($., Y),
@@ -1583,15 +1661,16 @@ obs_domain(X) ->
 %% *no* 'mailbox' at all. On the otherhand, you *must* have at least one
 %% comma. The following example is valid:
 %%
-%% 1> obs_mbox_list(<<",">>)
-%% []
+%% 1> obs_mbox_list(<<",">>).
+%% {[], <<>>}
 %%
 %% But this one is not:
 %%
-%% 2> obs_mbox_list(<<"joe@example.org">>)
+%% 2> obs_mbox_list(<<"joe@example.org">>).
 %% ** exception throw: {parse_error,expected,
 %%                                  "obsolete syntax for a list of mailboxes"}
 %% TODO: this work work as many current concats its args
+-spec obs_mbox_list(<<_:8,_:_*8>>) -> {[binary()], binary()}.
 obs_mbox_list(X) ->
     F = fun(Y) ->
                 {R, T1} = maybe_option(fun mailbox/1, Y),
@@ -1608,6 +1687,7 @@ obs_mbox_list(X) ->
 %% contain 'group's. Please note that as of now, the parser will return a
 %% simple list of addresses; the grouping information is lost.
 %% TODO: this work work as many current concats its args
+-spec obs_addr_list(<<_:8,_:_*8>>) -> {[binary()], binary()}.
 obs_addr_list(X) ->
     F = fun(Y) ->
                 {R, T1} = maybe_option(fun address/1, Y),
@@ -1626,6 +1706,7 @@ obs_addr_list(X) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% a list of all of the obsolete fields
+-spec obs_fields(binary()) -> {{atom(), any()}, binary()}.
 obs_fields(X) ->
     MkField = fun(F, Y) ->
                       fun(A) ->
@@ -1675,6 +1756,7 @@ obs_fields(X) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'date' header line but allow for the obsolete folding syntax.
+-spec obs_orig_date(<<_:56,_:_*8>>) -> {binary(), binary()}.
 obs_orig_date(X) -> obs_header("Date", fun date_time/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1682,12 +1764,15 @@ obs_orig_date(X) -> obs_header("Date", fun date_time/1, X).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'from' header line but allow for the obsolete folding syntax.
+-spec obs_from(<<_:56,_:_*8>>) -> {[binary()], binary()}.
 obs_from(X) -> obs_header("From", fun mailbox_list/1, X).
 
 %% parse a 'sender' header line but allow for the obsolete folding syntax.
+-spec obs_sender(<<_:72,_:_*8>>) -> {binary(), binary()}.
 obs_sender(X) -> obs_header("Sender", fun mailbox/1, X).
 
 %% parse a 'reply_to' header line but allow for the obsolete folding syntax.
+-spec obs_reply_to(<<_:88,_:_*8>>) -> {[binary()], binary()}.
 obs_reply_to(X) -> obs_header("Reply-To", fun mailbox_list/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1695,12 +1780,15 @@ obs_reply_to(X) -> obs_header("Reply-To", fun mailbox_list/1, X).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'to' header line but allow for the obsolete folding syntax.
+-spec obs_to(<<_:40,_:_*8>>) -> {[binary()], binary()}.
 obs_to(X) -> obs_header("To", fun address_list/1, X).
 
 %% parse a 'cc' header line but allow for the obsolete folding syntax.
+-spec obs_cc(<<_:40,_:_*8>>) -> {[binary()], binary()}.
 obs_cc(X) -> obs_header("Cc", fun address_list/1, X).
 
 %% parse a 'bcc' header line but allow for the obsolete folding syntax.
+-spec obs_bcc(<<_:48,_:_*8>>) -> {[binary()], binary()}.
 obs_bcc(X) -> obs_header("Bcc", fun address_list/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1708,10 +1796,12 @@ obs_bcc(X) -> obs_header("Bcc", fun address_list/1, X).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'message_id' header line but allow for the obsolete folding syntax.
+-spec obs_message_id(<<_:104,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.
 obs_message_id(X) -> obs_header("Message-ID", fun msg_id/1, X).
 
 %% parse and 'in_reply_to' header line but allow for the obsolete folding and
 %% obsolete phrase syntax.
+-spec obs_in_reply_to(<<_:112,_:_*8>>) -> {binary(), binary()}.
 obs_in_reply_to(X) ->
     A = fun(Y) ->
                 {_, T1} = phrase(Y),
@@ -1729,6 +1819,7 @@ obs_in_reply_to(X) ->
 
 %% parse a 'references' header line but allow for the obsolete folding and
 %% obsolete phrase syntax.
+-spec obs_references(<<_:104,_:_*8>>) -> {[binary()], binary()}.
 obs_references(X) ->
     A = fun(Y) ->
                 {_, T1} = phrase(Y),
@@ -1746,6 +1837,7 @@ obs_references(X) ->
 
 %% parse the "left part" of a message ID, but allows the obsolete syntax,
 %% which is identical to a 'local_part'.
+-spec obs_id_left(binary()) -> {binary(), binary()}.
 obs_id_left(X) ->
     try
         local_part(X)
@@ -1756,6 +1848,7 @@ obs_id_left(X) ->
 
 %% parses the "right part" of a message ID, but allows the obsolete syntax,
 %% which is identical to a 'domain'.
+-spec obs_id_right(binary()) -> {binary(), binary()}.
 obs_id_right(X) ->
     try
         domain(X)
@@ -1770,13 +1863,16 @@ obs_id_right(X) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'subject' header line but allow for the obsolete folding syntax.
+-spec obs_subject(<<_:80,_:_*8>>) -> {binary(), binary()}.
 obs_subject(X) -> obs_header("Subject", fun unstructured/1, X).
 
 %% parse a 'comments' header line but allow for the obsolete folding syntax.
+-spec obs_comments(<<_:88,_:_*8>>) -> {binary(), binary()}.
 obs_comments(X) -> obs_header("Comments", fun unstructured/1, X).
 
 %% parse a 'keywords' header line but allow for the obsolete folding syntax.
 %% Also, this parser accepts 'obs_phrase_list'.
+-spec obs_keywords(<<_:88,_:_*8>>) -> {[binary()], binary()}.
 obs_keywords(X) -> obs_header("Keywords", fun obs_phrase_list/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1784,30 +1880,38 @@ obs_keywords(X) -> obs_header("Keywords", fun obs_phrase_list/1, X).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'resent_from' header line but allow for the obsolete folding syntax.
+-spec obs_resent_from(<<_:112,_:_*8>>) -> {[binary()], binary()}.
 obs_resent_from(X) -> obs_header("Resent-From", fun mailbox_list/1, X).
 
 %% parse a 'resent_sender' header line but allow for the obsolete folding
 %% syntax.
+-spec obs_resent_send(<<_:128,_:_*8>>) -> {binary(), binary()}.
 obs_resent_send(X) -> obs_header("Resent-Sender", fun mailbox/1, X).
 
 %% parse a 'resent_date' header line but allow for the obsolete folding syntax.
+-spec obs_resent_date(<<_:112,_:_*8>>) -> {binary(), binary()}.
 obs_resent_date(X) -> obs_header("Resent-Date", fun date_time/1, X).
 
 %% parse a 'resent_to' header line but allow for the obsolete folding syntax.
+-spec obs_resent_to(<<_:96,_:_*8>>) -> {binary(), binary()}.
 obs_resent_to(X) -> obs_header("Resent-To", fun mailbox_list/1, X).
 
 %% parse a 'resent_cc' header line but allow for the obsolete folding syntax.
+-spec obs_resent_cc(<<_:80,_:_*8>>) -> {[binary()], binary()}.
 obs_resent_cc(X) -> obs_header("Resent-Cc", fun mailbox_list/1, X).
 
 %% parse a 'resent_bcc' header line but allow for the obsolete folding syntax.
+-spec obs_resent_bcc(<<_:88,_:_*8>>) -> {[binary()], binary()}.
 obs_resent_bcc(X) -> obs_header("Resent-Bcc", fun mailbox_list/1, X).
 
 %% parse a 'resent_msg_id' header line but allow for the obsolete folding
 %% syntax.
+-spec obs_resent_mid(<<_:160,_:_*8>>) -> {binary(), binary()}.
 obs_resent_mid(X) -> obs_header("Resent-Message-ID", fun msg_id/1, X).
 
 %% parse a 'resent_reply_to' header line but allow for the obsolete folding
 %% syntax.
+-spec obs_resent_reply(<<_:144,_:_*8>>) -> {[binary()], binary()}.
 obs_resent_reply(X) -> obs_header("Resent-Reply-To", fun address_list/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1815,16 +1919,21 @@ obs_resent_reply(X) -> obs_header("Resent-Reply-To", fun address_list/1, X).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% parse a 'return' header line but allow for the obsolete folding syntax.
+-spec obs_return(<<_:112,_:_*8>>) -> {binary(), binary()}.
 obs_return(X) -> obs_header("Return-Path", fun path/1, X).
 
 %% match a 'received' header line but allow for the obsolete folding syntax.
+-spec obs_received(<<_:88,_:_*8>>) -> {[{binary(), binary()}], binary()}.
 obs_received(X) -> obs_header("Reveived", fun name_val_list/1, X).
 
 %% match 'obs_angle_addr'
+-spec obs_path(<<_:24,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.
 obs_path(X) -> obs_angle_addr(X).
 
 %% this parser is identical to 'optional_field' but allows the more liberal
 %% line-folding suntax between the 'field_name" nad the "field_text".
+-spec obs_optional(<<_:40,_:_*8>>)
+      -> {{<<_:8,_:_*8>>, <<_:8,_:_*8>>}, binary()}.
 obs_optional(X) ->
     try
         {N, T1} = field_name(X),
