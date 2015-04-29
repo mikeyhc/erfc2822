@@ -134,12 +134,7 @@
 %% return 'undefined' if the given parser doesn't match
 -spec maybe_option(fun((binary()) -> {any(), binary}), binary())
       -> {any(), binary()}.
-maybe_option(F, A) ->
-    Ret = parserlang:option(undefined,F,A),
-    case Ret of
-        {undefined, Args} -> {undefined, lists:last(Args)};
-        _ -> Ret
-    end.
+maybe_option(F, A) -> parserlang:option(undefined,F,A).
 
 %% wraps the parser in optional cfws
 -spec unfold(fun((binary()) -> {binary(), binary()}), binary())
@@ -198,7 +193,7 @@ obs_header(N, F, A) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Primitive Tokens (seciont 3.2.1) %%%
+%%% Primitive Tokens (section 3.2.1) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% match any US-ASCII non-whitespace control character.
@@ -239,9 +234,10 @@ specials(X) -> error({badarg, X}).
 %% Note that the parser return 'both' characters, the backslash and the
 %% actual content.
 -spec quoted_pair(<<_:8,_:_*8>>) -> {<<_:16>>, binary()}.
-quoted_pair(Text) ->
+quoted_pair(Text) when is_binary(Text) ->
     F = fun(X) -> <<$\\, C, T/binary>> = X, {<<$\\, C>>, T} end,
-    parserlang:orparse([{rfc2822, obs_pq}, F], Text, "quoted pair").
+    parserlang:orparse([fun obs_qp/1, F], Text, "quoted pair");
+quoted_pair(Text) -> error({badarg, Text}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Folding white space and comments (section 3.2.3) %%%
@@ -268,7 +264,7 @@ fws(X) ->
 %% has become fairly common in the real world, so we'll just accept the
 %% fact.
 -spec ctext(<<_:8,_:_*8>>) -> {33..39 | 42..91 | 93..126 | 128..255, binary()}.
-ctext(X) ->
+ctext(X) when is_binary(X) ->
     Err = {parse_error, expected, "any regular character (excluding '(', ')'"
            ", '\\')"},
     ExtraChars = fun(Y) ->
@@ -280,7 +276,9 @@ ctext(X) ->
                             true -> throw(Err)
                          end
                  end,
-    parserlang:orparse([{rfc2822, no_ws_ctl}, ExtraChars], X, Err).
+    % parserlang:orparse([{rfc2822, no_ws_ctl}, ExtraChars], X, Err).
+    parserlang:orparse([ExtraChars], X, Err);
+ctext(X) -> error({badarg, X}).
 
 %% match a "comment". that is any 'ctext', 'quoted_pair's, and 'fws' between
 %% brackets. comments may nest.
