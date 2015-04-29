@@ -106,3 +106,79 @@ ctext_test_() ->
     ?random_byte_tests(fun rfc2822:ctext/1,
                        lists:seq(33, 39) ++ lists:seq(42, 91) ++
                        lists:seq(93, 126) ++ lists:seq(128, 255)).
+
+% TODO: comment/1 tests
+% TODO: cfws/1 tests
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Atom (section 3.2.4) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+atext_test_() ->
+    ?random_byte_tests(fun rfc2822:atext/1,
+                       lists:seq($A, $Z) ++ lists:seq($a, $z) ++
+                       lists:seq($0, $9) ++ "!#$%&'*+-/=?^_`{|}~").
+
+% TODO: atom/1 tests
+% TODO: dot_atom/1 tests
+% TODO: dot_atom_text/1 tests
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Quoted Strings (section 3.2.5) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+qtext_() ->
+    ?random_byte_tests(fun rfc2822:qtext/1,
+                       [33|lists:seq(35, 91) ++ lists:seq(93, 126)]).
+
+% TODO: qcontent/1 tests
+% TODO: quoted_string/1 tests
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Miscellaneous tokens (section 3.2.6) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: word/1 tests
+% TODO: phrase/1 tests
+
+utext_test_() ->
+    ?random_byte_tests(fun rfc2822:utext/1,
+                       [9,10,13,32,33|lists:seq(35, 91) ++
+                        lists:seq(93, 126)]).
+
+% TODO: unstructured/1 tests
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Date and Time Specification (section 3.3) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: date_time/1 tests
+% TODO: day_of_week/1 tests
+% TODO: binary-split_at/2 tests
+
+day_name_test_() ->
+    [ lists:map(fun({X, Y}) ->
+                        T = binary:list_to_bin(Y),
+                        ?_assertEqual({X, <<>>}, rfc2822:day_name(T))
+                end,
+                [ {monday, "Mon"},
+                  {tuesday, "Tue"},
+                  {wednesday, "Wed"},
+                  {thursday, "Thu"},
+                  {friday, "Fri"},
+                  {saturday, "Sat"},
+                  {sunday, "Sun"} ]),
+      ?_assertThrow({parse_error, expected, "name of a day-of-the-week"},
+                    rfc2822:day_name(<<"not-a-day">>)),
+      ?_assertError({badarg, a}, rfc2822:day_name(a))
+    ].
+
+% TODO: date/1 tests
+
+year_test_() ->
+    [ ?_assertEqual({1920, <<>>}, rfc2822:year(<<"1920">>)),
+      ?_assertEqual({19201, <<>>}, rfc2822:year(<<"19201">>)),
+      ?_assertThrow({parse_error, expected, "year"},
+                    rfc2822:year(<<"192">>)),
+      ?_assertError({badarg, a}, rfc2822:year(a))
+    ].

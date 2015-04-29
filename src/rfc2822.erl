@@ -375,7 +375,9 @@ qtext(X) ->
                      end;
                 (Y) -> error({badarg, Y})
              end,
-    parserlang:orparse([{rfc2822, no_ws_ctl}, QChars], X,
+    %parserlang:orparse([{rfc2822, no_ws_ctl}, QChars], X,
+    %                   "US-ASCII character (excluding '\\' and '\"')").
+    parserlang:orparse([QChars], X,
                        "US-ASCII character (excluding '\\' and '\"')").
 
 %% match either 'qtext' or 'quoted_pair'
@@ -426,22 +428,27 @@ word(X) ->
 -spec phrase(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 phrase(X) -> obs_phrase(X).
 
-%% match any non-whitespace, non-control US-ASCII character excep for
+%% match any non-whitespace, non-control US-ASCII character except for
 %% "\" and "\""
 -spec utext(<<_:8,_:_*8>>) -> {byte(), binary()}.
 utext(X) ->
     UChar = fun(Y) when is_binary(Y) ->
                      <<H, T/binary>> = Y,
-                     if H >= 33 andalso H =< 126 -> {H, T};
+                     if H == 9 orelse H == 10 orelse
+                        H == 13 orelse H == 32 orelse H == 33 orelse
+                        H >= 35 andalso H =< 91 orelse
+                        H >= 93 andalso H =< 126 -> {H, T};
                         true -> throw({parse_error, expected,
                                        "regular US-ASCII character "
                                        "(excluding '\\' and '\"')"})
                      end;
                 (Y) -> error({badarg, Y})
             end,
-    parserlang:orparse([{rfc2822, no_ws_ctl}, UChar], X,
-                       "regular US-ASCII character (excluding "
-                       "'\\' and '\"'").
+    %parserlang:orparse([{rfc2822, no_ws_ctl}, UChar], X,
+    %                   "regular US-ASCII character (excluding "
+    %                   "'\\' and '\"'").
+    parserlang:orparse([UChar], X, "regular US-ASCII character "
+                       "(excluding '\\' and '\"'").
 
 %% match any number of 'utext' tokens.
 %%
@@ -465,6 +472,7 @@ unstructured(X) ->
         error:{badmatch, _} -> throw({parse_error, expected,
                                       "unstructured text"})
     end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Date and Time Specification (section 3.3) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -485,6 +493,7 @@ unstructured(X) ->
 %% >  40 Apr 2002 13:12 +0100
 %%
 %% as a perfectly valid date.
+
 % TODO: accurate min-size for type
 -spec date_time(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 date_time(X) ->
@@ -511,23 +520,6 @@ day_of_week(X) ->
     parserlang:orparse([DayName, {rfc2822, obs_day_of_week}], X,
                        "name of a day-of-the-week").
 
-%% splits a binary at N
--spec binary_split_at(binary(), non_neg_integer()) -> {binary(), binary()}.
-binary_split_at(<<>>, 0) -> {<<>>, <<>>};
-binary_split_at(<<>>, N) -> error({badarg, N});
-binary_split_at(Bin, 0) when is_binary(Bin) -> {<<>>, Bin};
-binary_split_at(Bin, N) when is_binary(Bin) andalso is_integer(N) ->
-    <<H, T/binary>> = Bin,
-    try
-        {RH, RT} = binary_split_at(T, N-1),
-        {<<H, RH/binary>>, RT}
-    catch
-        error:{badarg, I} when is_integer(I) -> error({badarg, I+1})
-    end;
-binary_split_at(Bin, _) when not is_binary(Bin) -> error({badarg, Bin});
-binary_split_at(_, N) when not is_integer(N) -> error({badarg, N}).
-
-
 %% this parser will take the abbreviated weekday name ("Mon", "Tue", ...)
 %% and return the appropriate atom.
 -spec day_name(<<_:16,_:_*8>>) -> {dow(), binary()}.
@@ -544,12 +536,13 @@ day_name(X) ->
 %% helper method for generating day abbrev -> day atom functions
 -spec name_atom_helper(string(), X) -> fun((binary()) -> {X, binary()}).
 name_atom_helper(String, Ret) ->
+    Bin = binary:list_to_bin(String),
     fun(X) ->
-            case parserlang:case_string(String, X) of
-                true ->
-                    {_, T} = binary_split_at(X, byte_size(String)),
-                    {Ret, T};
-                false ->
+            try
+                {_, T} = parserlang:case_string(Bin, X),
+                {Ret, T}
+            catch
+                {parse_error, expected, _} ->
                     throw({parse_error, expected, String})
             end
     end.
@@ -577,10 +570,11 @@ date(X) ->
 year(X) ->
     try
         {H, T} = parserlang:manyN(4, fun(Y) -> rfc2234:digit(Y) end, X),
-        {bin_to_int(H), T}
+        {bin_to_int(parserlang:bin_concat(H)), T}
     catch
-        {parse_error, expected, _} -> throw({parse_error, expected, "year"});
-        error:{badarg, _} -> throw({parse_error, expected, "year"})
+        % {parse_error, expected, _} -> throw({parse_error, expected, "year"});
+        % error:{badarg, _} -> throw({parse_error, expected, "year"});
+        error:{badmatch, _} -> throw({parse_error, expected, "year"})
     end.
 
 %% converts a number in binary to its integer representation, no checking
