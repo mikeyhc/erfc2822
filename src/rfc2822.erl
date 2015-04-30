@@ -601,6 +601,7 @@ month_name(X) ->
                         name_atom_helper("Apr", april),
                         name_atom_helper("May", may),
                         name_atom_helper("Jun", june),
+                        name_atom_helper("Jul", july),
                         name_atom_helper("Aug", august),
                         name_atom_helper("Sep", september),
                         name_atom_helper("Oct", october),
@@ -611,8 +612,8 @@ month_name(X) ->
 %% internal helper function: match a 1 or 2-digit number (day of month)
 -spec day_of_month(<<_:8,_:_*8>>) -> {integer(), binary()}.
 day_of_month(X) ->
-    {H, T} = parserlang:manyNtoM(1, 2, fun parserlang:digit/1, X),
-    {bin_to_int(H), T}.
+    {H, T} = parserlang:manyNtoM(1, 2, fun rfc2234:digit/1, X),
+    {bin_to_int(parserlang:bin_concat(H)), T}.
 
 %% match a 1 or 2-digit number (day of month), recognizing both standard
 %% and obsolete folding syntax.
@@ -653,10 +654,10 @@ hour(X) ->
     F = fun(Y) -> rfc2234:digit(Y) end,
     try
         {R, T} = parserlang:count(2, F, X),
-        {bin_to_int(R), T}
+        {bin_to_int(parserlang:bin_concat(R)), T}
     catch
         {parse_error, expected, _} -> throw({parse_error, expected, "hour"});
-        error:{badmatch} -> throw({parse_error, expected, "hour"})
+        error:{badmatch, _} -> throw({parse_error, expected, "hour"})
     end.
 
 %% this parser will match a 2 digit number and returns its integer value.
@@ -871,17 +872,19 @@ dcontent(X) ->
 
 %% parse and return any ASCII characters except "[", "]" and "\".
 -spec dtext(<<_:8,_:_*8>>) -> {byte(), binary()}.
-dtext(X) ->
+dtext(X) when is_binary(X) ->
     ErrStr = "any ASCII character (excluding '[', ']' and '\\')",
     Err= {parse_error, expected, ErrStr},
     F = fun(Y) when is_binary(Y) ->
                 <<H, T/binary>> = Y,
-                if H >= 33 andalso H =< 90 orelse
+                if H >= 0 andalso H =< 90 orelse
                    H >= 94 andalso H =< 126 -> {H, T};
                    true -> throw(Err)
                 end
         end,
-    parserlang:orparse([F, fun no_ws_ctl/1], X, ErrStr).
+    % parserlang:orparse([F, fun no_ws_ctl/1], X, ErrStr).
+    parserlang:orparse([F], X, ErrStr);
+dtext(X) -> error({badarg, X}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Overall Message Syntax (section 3.5) %%%

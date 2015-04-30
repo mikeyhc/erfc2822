@@ -182,3 +182,101 @@ year_test_() ->
                     rfc2822:year(<<"192">>)),
       ?_assertError({badarg, a}, rfc2822:year(a))
     ].
+
+% TODO: month/1 tests
+
+month_name_test_() ->
+    [ lists:map(fun({X, Y}) ->
+                        T = binary:list_to_bin(Y),
+                        ?_assertEqual({X, <<>>}, rfc2822:month_name(T))
+                end,
+                [ {january, "Jan"},
+                  {feburary, "Feb"},
+                  {march, "Mar"},
+                  {april, "Apr"},
+                  {may, "May"},
+                  {june, "Jun"},
+                  {july, "Jul"},
+                  {august, "Aug"},
+                  {september, "Sep"},
+                  {october, "Oct"},
+                  {november, "Nov"},
+                  {december, "Dec"} ]),
+      ?_assertThrow({parse_error, expected, "month name"},
+                    rfc2822:month_name(<<"not-a-month">>)),
+      ?_assertError({badarg, a}, rfc2822:month_name(a))
+    ].
+
+day_of_month_test_() ->
+    [ ?_assertEqual({1, <<>>}, rfc2822:day_of_month(<<"1">>)),
+      ?_assertEqual({12, <<>>}, rfc2822:day_of_month(<<"12">>)),
+      ?_assertEqual({12, <<"3">>}, rfc2822:day_of_month(<<"123">>))
+    ].
+
+% TODO: day/1
+% TODO: time/1
+% TODO: time_of_day/1
+
+hour_test_() ->
+    [ ?_assertEqual({1, <<>>}, rfc2822:hour(<<"01">>)),
+      ?_assertThrow({parse_error, expected, "hour"},
+                    rfc2822:hour(<<"1">>)),
+      ?_assertThrow({parse_error, expected, "hour"},
+                    rfc2822:hour(<<"a">>)),
+      ?_assertError({badarg, a}, rfc2822:hour(a))
+    ].
+
+minute_test_() ->
+    [ ?_assertEqual({1, <<>>}, rfc2822:minute(<<"01">>)),
+      ?_assertThrow({parse_error, expected, "minute"},
+                    rfc2822:minute(<<"1">>)),
+      ?_assertThrow({parse_error, expected, "minute"},
+                    rfc2822:minute(<<"a">>)),
+      ?_assertError({badarg, a}, rfc2822:minute(a))
+    ].
+
+second_test_() ->
+    [ ?_assertEqual({1, <<>>}, rfc2822:second(<<"01">>)),
+      ?_assertThrow({parse_error, expected, "second"},
+                    rfc2822:second(<<"1">>)),
+      ?_assertThrow({parse_error, expected, "second"},
+                    rfc2822:second(<<"a">>)),
+      ?_assertError({badarg, a}, rfc2822:second(a))
+    ].
+
+%TODO: zone/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Address Specification (section 3.4) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: address/1
+% TODO: mailbox/1
+% TODO: name_addr/1
+% TODO: angle_addr/1
+% TODO: group/1
+% TODO: display_name/1
+% TODO: mailbox_list/1
+% TODO: address_list/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Addr-spec specification (section 3.4.1) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: addr_spec/1
+% TODO: local_part/1
+% TODO: domain/1
+% TODO: domain_literal/1
+% TODO: dcontent/1
+
+dtext_test_() ->
+    ?random_byte_tests(fun rfc2822:dtext/1,
+                       lists:seq(0, 90) ++ lists:seq(94, 126)).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Overall Message Syntax (section 3.5) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: message/1
+
+body_test_() -> [ ?_assertEqual({a,<<>>}, rfc2822:body(a)) ].
