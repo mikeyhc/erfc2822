@@ -1114,7 +1114,7 @@ no_fold_literal(X) ->
 subject(X) -> header("subject", fun unstructured/1, X).
 
 %% parse a "comments" header line and return its contents verbatim. Please
-%% noe that all whitespace and/or comments are preserved, i.e the result of
+%% note that all whitespace and/or comments are preserved, i.e the result of
 %% parsing "comments: foo" is " foo", not "foo".
 -spec comments(<<_:88,_:_*8>>) -> {binary(), binary()}.
 comments(X) -> header("comments", fun unstructured/1, X).
@@ -1452,9 +1452,9 @@ obs_year(X) ->
     F = fun(Y) ->
                 {R1, T1} = parserlang:manyN(2, fun rfc2234:digit/1, Y),
                 Y = bin_to_int(R1),
-                if Y =< 49  -> {2000 + Y, T1};
+                if Y =< 49 -> {2000 + Y, T1};
                    Y =< 999 -> {1900 + Y, T1};
-                   true     -> {Y, T1}
+                   true    -> {Y, T1}
                 end
         end,
     try
@@ -1475,32 +1475,15 @@ obs_month(X) ->
 
 %% parse a 'day' but allow for the obsolete folding syntax
 -spec obs_day(<<_:8,_:_*8>>) -> {integer(), binary()}.
-obs_day(X) ->
-    try
-        unfold(fun day_of_month/1, X)
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected, "day"})
-    end.
-
+obs_day(X) -> unfold(fun day_of_month/1, X).
 
 %% parse a 'hour' but allow for obsolete folding syntax.
 -spec obs_hour(<<_:8,_:_*8>>) -> {integer(), binary()}.
-obs_hour(X) ->
-    try
-        unfold(fun hour/1, X)
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected, "hour"})
-    end.
+obs_hour(X) -> unfold(fun hour/1, X).
 
 %% parse a 'minute' but allow for obsolete folding syntax
 -spec obs_minute(<<_:8,_:_*8>>) -> {integer(), binary()}.
-obs_minute(X) ->
-    try
-        unfold(fun minute/1, X)
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "minute"})
-    end.
+obs_minute(X) -> unfold(fun minute/1, X).
 
 %% parse a 'second' but allow for the obsolete folding syntax
 -spec obs_second(<<_:8,_:_*8>>) -> {integer(), binary()}.

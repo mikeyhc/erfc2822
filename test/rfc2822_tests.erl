@@ -280,3 +280,113 @@ dtext_test_() ->
 % TODO: message/1
 
 body_test_() -> [ ?_assertEqual({a,<<>>}, rfc2822:body(a)) ].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Field Definitions (section 3.6) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: fields/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% The origination date field (section 3.6.1) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: orig_date/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Originator fields (section 3.6.2) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: from/1
+% TODO: sender/1
+% TODO: reply_to/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Destination address fields (section 3.6.3) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: to/1
+% TODO: cc/1
+% TODO: bcc/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Identification fields (section 3.6.4) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: message_id/1
+% TODO: in_reply_to/1
+% TODO: references/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Informational fields (section 3.6.5) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: subject/1
+% TODO: comments/1
+% TODO: keywords/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Resent fields (section 3.6.6) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: resent_date/1
+% TODO: resent_from/1
+% TODO: resent_sender/1
+% TODO: resent_to/1
+% TODO: resent_cc/1
+% TODO: resent_bcc/1
+% TODO: resent_msg_id/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Trace Fields (section 3.6.7) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: return_path/1
+% TODO: received/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Optional Fields (section 3.6.8) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: optional_field/1
+% TODO: field_name/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Miscellaneous obsolete tokens (section 4.1) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_qp/1
+% TODO: obs_text/1
+% TODO: obs_char/1
+% TODO: obs_utext/1
+% TODO: obs_phrase/1
+% TODO: obs_phrase_list/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete folding white space (section 4.2) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_fws/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete Date and Time (section 4.3) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_day_of_week/1
+
+obs_year_() ->
+    [ ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"01">>)),
+      ?_assertEqual({1999, <<>>}, rfc2822:obs_year(<<"99">>)),
+      ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"2001">>)),
+      ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"  2001\t">>)),
+      ?_assertThrow({parse_error, expected, "year"},
+                    rfc2822:obs_year(<<"a">>)),
+      ?_assertError({badarg, a}, rfc2822:obs_year(a))
+    ].
+
+% TODO: obs_month/1
+% TODO: obs_day/1
+
+obs_hour() ->
+    [ ?_assertEqual({20, <<>>}, rfc2822:obs_hour(<<"  20  ">>))
+    ].
