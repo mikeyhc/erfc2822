@@ -186,7 +186,8 @@ obs_header(N, F, A) ->
                 {H1, T1} = parserlang:case_string(N, X),
                 {H2, T2} = parserlang:many(fun rfc2234:wsp/1, T1),
                 {_, T3} = parserlang:char($:, T2),
-                {<<H1/binary, H2/binary, $:>>, T3}
+                BC= parserlang:bin_concat(H2),
+                {<<H1/binary, BC/binary, $:>>, T3}
         end,
     try
         parserlang:between(H, crlf_tail_fun(), F, A)

@@ -55,9 +55,26 @@ maybe_option_test_() ->
                     rfc2822:maybe_option(fun rfc2234:alpha/1, a))
     ].
 
-% TODO: unfold/2 tests
-% TODO: header/3 tests
-% TODO: obs_header/3 tests
+unfold_test_() ->
+    [lists:map(fun(X) ->
+                       B = binary:list_to_bin(X),
+                       ?_assertEqual({$a, <<>>},
+                                     rfc2822:unfold(fun rfc2234:alpha/1, B))
+               end,
+               [ "\ta\t", " \ta ", "a\t", " a ", "\t\ta" ]),
+     ?_assertEqual({$a, <<"b">>}, rfc2822:unfold(fun rfc2234:alpha/1,
+                                                 <<"\t a\t\tb">>))
+    ].
+
+header_test_() ->
+    [ ?_assertEqual({$a,<<>>}, rfc2822:header("test", fun rfc2234:alpha/1,
+                                              <<"test:a\r\n">>))
+    ].
+
+obs_header_test_() ->
+    [ ?_assertEqual({$a, <<>>}, rfc2822:obs_header("test", fun rfc2234:alpha/1,
+                                                   <<"test \t:a\r\n">>))
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Primitive Tokens (section 3.2.1) %%%
