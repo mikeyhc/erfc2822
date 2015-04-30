@@ -1470,12 +1470,7 @@ obs_year(X) ->
 %% parse a 'month_name' but allow for the obsolete folding syntax.
 -spec obs_month(<<_:24,_:_*8>>) -> {month(), binary()}.
 obs_month(X) ->
-    try
-        parserlang:between(fun cfws/1, fun cfws/1, fun month_name/1, X)
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "month name"})
-    end.
+    parserlang:between(fun cfws/1, fun cfws/1, fun month_name/1, X).
 
 %% parse a 'day' but allow for the obsolete folding syntax
 -spec obs_day(<<_:8,_:_*8>>) -> {integer(), binary()}.
@@ -1491,13 +1486,7 @@ obs_minute(X) -> unfold(fun minute/1, X).
 
 %% parse a 'second' but allow for the obsolete folding syntax
 -spec obs_second(<<_:8,_:_*8>>) -> {integer(), binary()}.
-obs_second(X) ->
-    try
-        unfold(fun second/1, X)
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "second"})
-    end.
+obs_second(X) -> unfold(fun second/1, X).
 
 %% match the obsolete zone names and return the appropriate offset
 -spec obs_zone(<<_:16,_:_*8>>) -> {integer(), binary()}.

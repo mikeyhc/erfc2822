@@ -388,5 +388,91 @@ obs_year_test_() ->
 % TODO: obs_day/1
 
 obs_hour_test_() ->
-    [ ?_assertEqual({20, <<>>}, rfc2822:obs_hour(<<"  20  ">>))
-    ].
+    [ ?_assertEqual({20, <<>>}, rfc2822:obs_hour(<<"  20  ">>)) ].
+
+obs_minute_test_() ->
+    [ ?_assertEqual({20, <<>>}, rfc2822:obs_minute(<<"  20\t">>)) ].
+
+obs_second_test_() ->
+    [ ?_assertEqual({20, <<>>}, rfc2822:obs_second(<<"\t20">>)) ].
+
+% TODO: obs_zone/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete Addressing (section 4.4) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_angle_addr/1
+% TODO: obs_route/1
+% TODO: obs_domain_list/1
+% TODO: obs_local_part/1
+% TODO: obs_domain/1
+% TODO: obs_mbox_list/1
+% TODO: obs_addr_list/1
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete header fields (section 4.5) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_fields/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete origination date field (section 4.5.1) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_orig_date/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete Originator fields (section 4.5.2) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_from/1
+% TODO: obs_sender/1
+% TODO: obs_reply_to/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete destination address fields (section 4.5.3) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_to/1
+% TODO: obs_cc/1
+% TODO: obs_bcc/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete identification fields (section 4.5.4) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_message_id/1
+% TODO: obs_in_reply_to/1
+% TODO: obs_references/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete informational fields (section 4.5.5) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_subject/1
+% TODO: obs_comments/1
+% TODO: obs_keywords/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete resent fields (section 4.5.6) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_resent_from/1
+% TODO: obs_resent_send/1
+% TODO: obs_resent_date/1
+% TODO: obs_resent_to/1
+% TODO: obs_resent_cc/1
+% TODO: obs_resent_bcc/1
+% TODO: obs_resent_mid/1
+% TODO: obs_resent_reply/1
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Obsolete trace fields (section 4.5.7) %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: obs_return/1
+% TODO: obs_received/1
+% TODO: obs_path/1
+% TODO: obs_optional/1
