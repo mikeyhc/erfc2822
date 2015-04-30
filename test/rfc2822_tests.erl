@@ -68,12 +68,22 @@ unfold_test_() ->
 
 header_test_() ->
     [ ?_assertEqual({$a,<<>>}, rfc2822:header("test", fun rfc2234:alpha/1,
-                                              <<"test:a\r\n">>))
+                                              <<"test:a\r\n">>)),
+      ?_assertThrow({parse_error, expected, "test header line"},
+                    rfc2822:header("test", fun rfc2234:alpha/1,
+                                   <<"test:0\r\n">>)),
+      ?_assertThrow({parse_error, expected, "test header line"},
+                    rfc2822:header("test", fun rfc2234:alpha/1,
+                                   <<"test:a">>)),
+      ?_assertError({badarg, a}, rfc2822:header(a, fun rfc2234:alpha/1, <<>>))
     ].
 
 obs_header_test_() ->
     [ ?_assertEqual({$a, <<>>}, rfc2822:obs_header("test", fun rfc2234:alpha/1,
-                                                   <<"test \t:a\r\n">>))
+                                                   <<"test \t:a\r\n">>)),
+      ?_assertThrow({parse_error, expected, "test obsolete header line"},
+                    rfc2822:obs_header("test", fun rfc2234:alpha/1,
+                                       <<"test:0\r\n">>))
     ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -117,15 +127,41 @@ quoted_pair_test_() ->
 %%% Folding white space and comments (section 3.2.3) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: fws/1 tests
+fws_test_() ->
+    [ lists:map(fun(X) ->
+                        B = binary:list_to_bin(X),
+                        ?_assertEqual({B, <<>>}, rfc2822:fws(B))
+                end,
+                [ " ", "\t", " \r\n ", "\r\n \r\n " ])
+    ].
 
 ctext_test_() ->
     ?random_byte_tests(fun rfc2822:ctext/1,
                        lists:seq(33, 39) ++ lists:seq(42, 91) ++
                        lists:seq(93, 126) ++ lists:seq(128, 255)).
 
-% TODO: comment/1 tests
-% TODO: cfws/1 tests
+comment_test_() ->
+    [ lists:map(fun(X) ->
+                        B = binary:list_to_bin(X),
+                        ?_assertEqual({B, <<>>}, rfc2822:comment(B))
+                end,
+                [ "(this is a comment)",
+                  "(comment \a quoted)",
+                  "(this is more folding \t)"
+                ]),
+      ?_assertError({badarg, a}, rfc2822:comment(a))
+    ].
+
+cfws_test_() ->
+    [ lists:map(fun(X) ->
+                        B = binary:list_to_bin(X),
+                        ?_assertEqual({B, <<>>}, rfc2822:cfws(B))
+                end,
+                [ " \t(leading fws)",
+                  "(trailing fws) \t",
+                  "\t (both)\t\r\n " ]),
+      ?_assertError({badarg, a}, rfc2822:comment(a))
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Atom (section 3.2.4) %%%

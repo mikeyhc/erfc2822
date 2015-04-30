@@ -172,8 +172,7 @@ crlf_tail_fun() ->
                 {_, T} = rfc2234:crlf(X),
                 {match, T}
             catch
-                error:{badmatch, _} -> throw({parse_error, expected, "\r\n"});
-                {parse_error, expected, _} -> nomatch
+                error:{badmatch, _} -> throw({parse_error, expected, "\r\n"})
             end
     end.
 
@@ -192,9 +191,9 @@ obs_header(N, F, A) ->
     try
         parserlang:between(H, crlf_tail_fun(), F, A)
     catch
-        {parserlang, expected, _} -> throw({parse_error, expected,
-                                           binary:bin_to_list(N) ++
-                                           " obsolete header line"})
+        {parse_error, expected, _} -> throw({parse_error, expected,
+                                             binary:bin_to_list(N) ++
+                                             " obsolete header line"})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -256,10 +255,11 @@ fws(X) ->
     LineBreak = fun(Y) ->
                         {H1, T1} = rfc2234:crlf(Y),
                         {H2, T2} = Blanks(T1),
-                        {<<H1/binary, H2/binary>>, T2}
+                        {[H1, H2], T2}
                 end,
     Choice = parserlang:choice([Blanks, LineBreak], "folding whitespace"),
-    parserlang:many1(Choice, X).
+    {R, T} = parserlang:many1(Choice, X),
+    {binary:list_to_bin(lists:concat(R)), T}.
 
 %% match any non-whitespace, non-control character except for "(", ")" and
 %% "\". this is used to describe the legal content of 'comment's.
@@ -289,27 +289,25 @@ ctext(X) -> error({badarg, X}).
 %% brackets. comments may nest.
 -spec comment(<<_:16,_:_*8>>) -> {<<_:16,_:_*16>>, binary()}.
 comment(X) ->
-    ManyCtext = fun(Y) -> parserlang:many1(fun ctext/1, Y) end,
-    QuotedPair = fun(Y) -> quoted_pair(Y) end,
-    Comment = fun(Y) -> comment(Y) end,
+    ManyCtext = fun(Y) ->
+                        {R, T} = parserlang:many1(fun ctext/1, Y),
+                        {parserlang:bin_concat(R), T}
+                end,
     CContent = fun(Y) ->
-                    try
                         Choice = parserlang:choice([ManyCtext,
-                                                    QuotedPair,
-                                                    Comment], "comment text"),
+                                                    fun quoted_pair/1,
+                                                    fun comment/1],
+                                                   "comment text"),
                         {H1, T1} = parserlang:option(<<>>, fun fws/1, Y),
                         {H2, T2} = Choice(T1),
-                        { <<H1/binary, H2/binary>>, T2}
-                    catch
-                        {parse_error, expected, _} -> {<<>>, Y};
-                        error:{badmatch, _} -> {<<>>, Y}
-                    end
+                        {parserlang:bin_join(H1, H2), T2}
                end,
     {_, T1} = parserlang:char($(, X),
     {H2, T2} = parserlang:many(CContent, T1),
     {H3, T3} = parserlang:option(<<>>, fun fws/1, T2),
     {_, T4} = parserlang:char($), T3),
-    {<<$(, H2/binary, H3/binary, $)>>, T4}.
+    BC = parserlang:bin_concat(H2),
+    {<<$(, BC/binary, H3/binary, $)>>, T4}.
 
 %% match any combination of 'fws' and 'comments'.
 -spec cfws(binary()) -> {binary(), binary()}.
@@ -317,7 +315,8 @@ cfws(X) ->
     Choice = parserlang:choice([fun(Y) -> fws(Y) end,
                                 fun(Y) -> comment(Y) end],
                                "comment or folding white space"),
-    parserlang:many1(Choice, X).
+    {R, T} = parserlang:many1(Choice, X),
+    {parserlang:bin_concat(R), T}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Atom (section 3.2.4) %%%
