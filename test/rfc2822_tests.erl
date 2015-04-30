@@ -28,6 +28,14 @@
               select_n_random(Number,
                               lists:subtract(lists:seq(0,255), List)))).
 
+-define(string_list_test(Func, List),
+    [ lists:map(fun(X) ->
+                        B = binary:list_to_bin(X),
+                        ?_assertEqual({B, <<>>}, Func(B))
+                end, List),
+      ?_assertError({badarg, a}, Func(a))
+    ]).
+
 select_n_random(N, L) ->
     <<A:32, B:32, C:32>> = crypto:rand_bytes(12),
     random:seed(A, B, C),
@@ -127,13 +135,8 @@ quoted_pair_test_() ->
 %%% Folding white space and comments (section 3.2.3) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fws_test_() ->
-    [ lists:map(fun(X) ->
-                        B = binary:list_to_bin(X),
-                        ?_assertEqual({B, <<>>}, rfc2822:fws(B))
-                end,
-                [ " ", "\t", " \r\n ", "\r\n \r\n " ])
-    ].
+fws_test_() -> ?string_list_test(fun rfc2822:fws/1,
+                                 [ " ", "\t", " \r\n ", "\r\n \r\n " ]).
 
 ctext_test_() ->
     ?random_byte_tests(fun rfc2822:ctext/1,
@@ -141,27 +144,15 @@ ctext_test_() ->
                        lists:seq(93, 126) ++ lists:seq(128, 255)).
 
 comment_test_() ->
-    [ lists:map(fun(X) ->
-                        B = binary:list_to_bin(X),
-                        ?_assertEqual({B, <<>>}, rfc2822:comment(B))
-                end,
-                [ "(this is a comment)",
-                  "(comment \a quoted)",
-                  "(this is more folding \t)"
-                ]),
-      ?_assertError({badarg, a}, rfc2822:comment(a))
-    ].
-
+    ?string_list_test(fun rfc2822:comment/1,
+                      [ "(this is a comment)",
+                        "(comment \a quoted)",
+                        "(this is more folding \t)"]).
 cfws_test_() ->
-    [ lists:map(fun(X) ->
-                        B = binary:list_to_bin(X),
-                        ?_assertEqual({B, <<>>}, rfc2822:cfws(B))
-                end,
-                [ " \t(leading fws)",
-                  "(trailing fws) \t",
-                  "\t (both)\t\r\n " ]),
-      ?_assertError({badarg, a}, rfc2822:comment(a))
-    ].
+    ?string_list_test(fun rfc2822:cfws/1,
+                      [ " \t(leading fws)",
+                        "(trailing fws) \t",
+                        "\t (both)\t\r\n " ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Atom (section 3.2.4) %%%
@@ -172,9 +163,23 @@ atext_test_() ->
                        lists:seq($A, $Z) ++ lists:seq($a, $z) ++
                        lists:seq($0, $9) ++ "!#$%&'*+-/=?^_`{|}~").
 
-% TODO: atom/1 tests
-% TODO: dot_atom/1 tests
-% TODO: dot_atom_text/1 tests
+atom_test_() ->
+    [ ?string_list_test(fun rfc2822:atom/1, [ "abc", "20a0", "&/=?abc" ]),
+      ?_assertThrow({parse_error, expected, _}, rfc2822:atom(<<"\r">>))
+    ].
+
+dot_atom_test_() ->
+    [ ?string_list_test(fun rfc2822:dot_atom/1, [ "abc.xyz", "2.3.4" ]),
+      ?_assertThrow({parse_error, expected, _}, rfc2822:dot_atom(<<"\n">>))
+    ].
+
+intersperse_test_() -> [ ?_assertEqual([], rfc2822:intersperse([], $c)) ].
+
+dot_atom_text_test_() ->
+    [ ?string_list_test(fun rfc2822:dot_atom_text/1, [ "abc.xyz", "2.3.4" ]),
+      ?_assertThrow({parse_error, expected, _}, rfc2822:dot_atom_text(<<"a">>))
+    ].
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Quoted Strings (section 3.2.5) %%%

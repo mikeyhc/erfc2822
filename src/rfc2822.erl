@@ -124,7 +124,7 @@
 
          % TESTING ONLY FUNCTIONS
          % TODO: remove these
-         bin_to_int/1]).
+         bin_to_int/1, intersperse/2]).
 
 -type dow() :: monday | tuesday | wednesday | thursday | friday | saturday |
                sunday.
@@ -339,10 +339,10 @@ atext(X) ->
 -spec atom(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 atom(X) ->
     try
-        unfold(fun(Y) -> atext(Y) end, X)
+        {R, T} = unfold(fun(Y) -> parserlang:many1(fun atext/1, Y) end, X),
+        {parserlang:bin_concat(R), T}
     catch
-        {parse_error, expected, _} -> throw({parse_error, expected, "atom"});
-        error:{badmatch, _} -> throw({parse_error, expected, "atom"})
+        {parse_error, expected, _} -> throw({parse_error, expected, "atom"})
     end.
 
 %% match 'dot_atom_text' and skip any preceeding or trailing 'cfws'
@@ -352,16 +352,21 @@ dot_atom(X) ->
         unfold(fun(Y) -> dot_atom_text(Y) end, X)
     catch
         {parse_error, expected, _} ->
-            throw({parse_error, expected, "dot atom"});
-        error:{badmatch, _} -> throw({parse_error, expected, "dot atom"})
+            throw({parse_error, expected, "dot atom"})
     end.
+
+%% add the given element between each element
+intersperse([], _) -> [];
+intersperse([X], _) -> [X];
+intersperse([H|T], C) -> [H,C|intersperse(T, C)].
 
 %% match two or mote 'atext's interspersed with dots
 -spec dot_atom_text(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 dot_atom_text(X) ->
     Content = fun(Y) -> parserlang:many1(fun atext/1, Y) end,
     Sep = fun(Y) -> parserlang:char($., Y) end,
-    parserlang:sepby1(Content, Sep, X).
+    {R, T} = parserlang:sepby1(Content, Sep, X),
+    {binary:list_to_bin(lists:concat(intersperse(R, "."))), T}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Quoted Strings (section 3.2.5) %%%
