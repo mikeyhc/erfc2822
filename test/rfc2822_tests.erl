@@ -374,7 +374,7 @@ body_test_() -> [ ?_assertEqual({a,<<>>}, rfc2822:body(a)) ].
 
 % TODO: obs_day_of_week/1
 
-obs_year_() ->
+obs_year_test_() ->
     [ ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"01">>)),
       ?_assertEqual({1999, <<>>}, rfc2822:obs_year(<<"99">>)),
       ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"2001">>)),
@@ -387,6 +387,6 @@ obs_year_() ->
 % TODO: obs_month/1
 % TODO: obs_day/1
 
-obs_hour() ->
+obs_hour_test_() ->
     [ ?_assertEqual({20, <<>>}, rfc2822:obs_hour(<<"  20  ">>))
     ].

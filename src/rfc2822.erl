@@ -120,7 +120,11 @@
          obs_resent_mid/1, obs_resent_reply/1,
 
          % obsolete trace fields (section 4.5.7)
-         obs_return/1, obs_received/1, obs_path/1, obs_optional/1]).
+         obs_return/1, obs_received/1, obs_path/1, obs_optional/1,
+
+         % TESTING ONLY FUNCTIONS
+         % TODO: remove these
+         bin_to_int/1]).
 
 -type dow() :: monday | tuesday | wednesday | thursday | friday | saturday |
                sunday.
@@ -140,10 +144,10 @@ maybe_option(F, A) -> parserlang:option(undefined,F,A).
 -spec unfold(fun((binary()) -> {binary(), binary()}), binary())
       -> {binary(), binary()}.
 unfold(F, A) ->
-    {CFWS1, T1} = parserlang:optional(fun cfws/1, A),
+    {_, T1} = parserlang:optional(fun cfws/1, A),
     {Body, T2} = F(T1),
-    {CFWS2, T3} = parserlang:optional(fun cfws/1, T2),
-    {parserlang:bin_concat([CFWS1, Body, CFWS2]), T3}.
+    {_, T3} = parserlang:optional(fun cfws/1, T2),
+    {Body, T3}.
 
 %% construct a parser for a message header line from the header
 %% name and a parser for the body
@@ -1451,10 +1455,10 @@ obs_day_of_week(X) ->
 obs_year(X) ->
     F = fun(Y) ->
                 {R1, T1} = parserlang:manyN(2, fun rfc2234:digit/1, Y),
-                Y = bin_to_int(R1),
-                if Y =< 49 -> {2000 + Y, T1};
-                   Y =< 999 -> {1900 + Y, T1};
-                   true    -> {Y, T1}
+                Z = bin_to_int(parserlang:bin_concat(R1)),
+                if Z =< 49  -> {2000 + Z, T1};
+                   Z =< 999 -> {1900 + Z, T1};
+                   true     -> {Z, T1}
                 end
         end,
     try
