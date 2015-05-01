@@ -485,7 +485,7 @@ unstructured(X) ->
 
 %% Parse a date and time specification of the form
 %%
-%% > Thu, 19 Dec 2002 20:35;46 +0200
+%% > Thu, 19 Dec 2002 20:35:46 +0200
 %%
 %% where the weekday specification "Thu," is optional. The parser returns
 %% a calender_time record, which is set to the appropriate values. Note,
@@ -501,7 +501,7 @@ unstructured(X) ->
 %% as a perfectly valid date.
 
 % TODO: accurate min-size for type
--spec date_time(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
+-spec date_time(<<_:8,_:_*8>>) -> {#calender_time{}, binary()}.
 date_time(X) ->
     F = fun(Y) ->
                 {H1, T1} = day_of_week(Y),
@@ -553,7 +553,7 @@ name_atom_helper(String, Ret) ->
             end
     end.
 
-%% this parser will match a date of the form "dd:mm:yyyy" and return a
+%% this parser will match a date of the form "dd Month yyyy" and return a
 %% triple of of the form (Int, Month, Int) - corresponding to
 %% (year, month, day)
 -spec date(<<_:48,_:_*8>>) -> {integer(), integer(), integer(), binary()}.
@@ -565,9 +565,7 @@ date(X) ->
         {Y, M, D, T3}
     catch
         {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "date specification"});
-        error:{badarg, _} -> throw({parse_error, expected,
-                                    "date specification"})
+                                             "date specification"})
     end.
 
 %% this parser will match a four digit number and return is integer value.
@@ -650,7 +648,7 @@ time_of_day(X) ->
     {H, T1} = hour(X),
     {_, T2} = parserlang:char($:, T1),
     {M, T3} = minute(T2),
-    {S, T4} = parserlang:option(<<>>, F, T3),
+    {S, T4} = parserlang:option(0, F, T3),
     {#timediff{hour=H, min=M, sec=S}, T4}.
 
 %% this parser will amtch a two-digit number and return its integer value.

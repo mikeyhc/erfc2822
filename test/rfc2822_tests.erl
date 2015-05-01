@@ -6,6 +6,8 @@
 -module(rfc2822_tests).
 -compile([export_all]).
 -include_lib("eunit/include/eunit.hrl").
+-include("calender_time.hrl").
+-include("timediff.hrl").
 
 %%%%%%%%%%%%%%%%%%%%
 %%% Test Helpers %%%
@@ -229,9 +231,31 @@ unstructured_test_() ->
 %%% Date and Time Specification (section 3.3) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: date_time/1 tests
-% TODO: day_of_week/1 tests
-% TODO: binary-split_at/2 tests
+date_time_test_() ->
+    Time = #calender_time{year=1900, month=january, day=1, hour=0,
+                          min=0, sec=0, week_day=monday, tz_diff=0},
+    Time2 = #calender_time{year=1900, month=january, day=1, hour=0,
+                           min=0, sec=0, week_day=undefined, tz_diff=0},
+    [ ?_assertEqual({Time, <<>>},
+                    rfc2822:date_time(<<"Mon, 01 Jan 1900 00:00:00 +0000">>)),
+      ?_assertEqual({Time2, <<>>},
+                    rfc2822:date_time(<<"01 Jan 1900 00:00:00 +0000">>))
+    ].
+
+day_of_week_test_() ->
+    [ lists:map(fun({X, Y}) ->
+                        B = binary:list_to_bin(Y),
+                        ?_assertEqual({X, <<>>}, rfc2822:day_name(B))
+                end,
+                [ {monday, "Mon"},
+                  {tuesday, "Tue"},
+                  {wednesday, "Wed"},
+                  {thursday, "Thu"},
+                  {friday, "Fri"},
+                  {saturday, "Sat"},
+                  {sunday, "Sun"}
+                ])
+    ].
 
 day_name_test_() ->
     [ lists:map(fun({X, Y}) ->
@@ -250,7 +274,12 @@ day_name_test_() ->
       ?_assertError({badarg, a}, rfc2822:day_name(a))
     ].
 
-% TODO: date/1 tests
+date_test_() ->
+    [ ?_assertEqual({1900, january, 1, <<>>}, rfc2822:date(<<"01 Jan 1900">>)),
+      ?_assertThrow({parse_error, expected, "date specification"},
+                    rfc2822:date(<<"a">>)),
+      ?_assertError({badarg, a}, rfc2822:date(a))
+    ].
 
 year_test_() ->
     [ ?_assertEqual({1920, <<>>}, rfc2822:year(<<"1920">>)),
@@ -260,7 +289,9 @@ year_test_() ->
       ?_assertError({badarg, a}, rfc2822:year(a))
     ].
 
-% TODO: month/1 tests
+month_test_() ->
+    [ ?_assertEqual({january, <<>>}, rfc2822:month(<<" Jan\t">>))
+    ].
 
 month_name_test_() ->
     [ lists:map(fun({X, Y}) ->
@@ -290,9 +321,25 @@ day_of_month_test_() ->
       ?_assertEqual({12, <<"3">>}, rfc2822:day_of_month(<<"123">>))
     ].
 
-% TODO: day/1
-% TODO: time/1
-% TODO: time_of_day/1
+day_test_() ->
+    [ ?_assertEqual({1, <<>>}, rfc2822:day(<<"01">>)),
+      ?_assertEqual({1, <<>>}, rfc2822:day(<<"1">>)),
+      ?_assertThrow({parse_error, expected, "day of month"},
+                    rfc2822:day(<<"a">>)),
+      ?_assertError({badarg, a}, rfc2822:day(a))
+    ].
+
+time_test_() ->
+    [ ?_assertEqual({#timediff{hour=0, min=0, sec=0}, 60, <<>>},
+                    rfc2822:time(<<"00:00:00 +0100">>))
+    ].
+
+time_of_day_test_() ->
+    [ ?_assertEqual({#timediff{hour=0, min=0, sec=0}, <<>>},
+                    rfc2822:time_of_day(<<"00:00:00">>)),
+      ?_assertEqual({#timediff{hour=0, min=0, sec=0}, <<>>},
+                    rfc2822:time_of_day(<<"00:00">>))
+    ].
 
 hour_test_() ->
     [ ?_assertEqual({1, <<>>}, rfc2822:hour(<<"01">>)),
@@ -321,7 +368,15 @@ second_test_() ->
       ?_assertError({badarg, a}, rfc2822:second(a))
     ].
 
-%TODO: zone/1
+zone_test_() ->
+    [ ?_assertEqual({0, <<>>}, rfc2822:zone(<<"+0000">>)),
+      ?_assertEqual({60, <<>>}, rfc2822:zone(<<"+0100">>)),
+      ?_assertEqual({1, <<>>}, rfc2822:zone(<<"+0001">>)),
+      ?_assertEqual({-60, <<>>}, rfc2822:zone(<<"-0100">>)),
+      ?_assertThrow({parse_error, expected, "timezone"},
+                    rfc2822:zone(<<"a">>)),
+      ?_assertError({badarg, a}, rfc2822:zone(a))
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Address Specification (section 3.4) %%%
