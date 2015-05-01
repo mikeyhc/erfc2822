@@ -392,8 +392,11 @@ qtext(X) ->
 %% match either 'qtext' or 'quoted_pair'
 -spec qcontent(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 qcontent(X) ->
-    ManyQText = fun(Y) -> parserlang:many1(fun qtext/1, Y) end,
-    parserlang:orparse([ManyQText, {rfc2822, quoted_pair}], X,
+    ManyQText = fun(Y) ->
+                        {R, T} = parserlang:many1(fun qtext/1, Y),
+                        {binary:list_to_bin(R), T}
+                end,
+    parserlang:orparse([ManyQText, fun quoted_pair/1], X,
                        "quoted string content").
 
 %% match any number of 'qcontent' between double quotes. Any 'cfws'
@@ -410,7 +413,8 @@ quoted_string(X) ->
                      {H2, T2} = parserlang:many(Body, T1),
                      {H3, T3} = parserlang:option(<<>>, fun fws/1, T2),
                      {H4, T4} = rfc2234:dquote(T3),
-                     {parserlang:bin_concat([H1, H2, H3, H4]), T4}
+                     BC = parserlang:bin_concat(H2),
+                     {parserlang:bin_concat([H1, BC, H3, H4]), T4}
              end,
     try
         unfold(Quoted, X)
@@ -429,7 +433,7 @@ quoted_string(X) ->
 word(X) ->
     Word = fun(Y) ->
                    parserlang:orparse([fun atom/1, fun quoted_string/1],
-                                      Y, "atom or quoted_string")
+                                      Y, "word")
            end,
     unfold(Word, X).
 
@@ -461,7 +465,7 @@ utext(X) ->
 
 %% match any number of 'utext' tokens.
 %%
-%% "Unstructured test" is used in free text fields such as 'subject'.
+%% "Unstructured text" is used in free text fields such as 'subject'.
 %% Please not that any comment or whitespace that prefaces or follows
 %% the actual 'utext' is *included* in the returned string.
 -spec unstructured(<<_:8,_:_*8>>) -> {<<_:_*8>>, binary()}.
@@ -474,7 +478,7 @@ unstructured(X) ->
                end,
         {H1, T1} = parserlang:option(<<>>, fun fws/1, X),
         {H2, T2} = parserlang:many(Func, T1),
-        {parserlang:bin_concat([H1, H2]), T2}
+        {parserlang:bin_concat([H1|H2]), T2}
     catch
         {parse_error, expected, _} -> throw({parse_error, expected,
                                              "unstructured text"});

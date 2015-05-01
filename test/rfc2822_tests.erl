@@ -185,26 +185,45 @@ dot_atom_text_test_() ->
 %%% Quoted Strings (section 3.2.5) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-qtext_() ->
+qtext_test_() ->
     ?random_byte_tests(fun rfc2822:qtext/1,
                        [33|lists:seq(35, 91) ++ lists:seq(93, 126)]).
 
-% TODO: qcontent/1 tests
-% TODO: quoted_string/1 tests
+qcontent_test_() ->
+    ?string_list_test(fun rfc2822:qcontent/1, ["abcd", "\\\t" ]).
+
+quoted_string_test_() ->
+    [ ?string_list_test(fun rfc2822:quoted_string/1,
+                        ["\"abcd\"", "\"\\\t\"", "\"\\\tabcxyz\"",
+                         "\"\\\t\\\r\"", "\"  \tabc \""]),
+      ?_assertThrow({parse_error, expected, "quoted string"},
+                    rfc2822:quoted_string(<<"x">>)),
+      ?_assertThrow({parse_error, expected, "quoted string"},
+                    rfc2822:quoted_string(<<>>))
+    ].
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Miscellaneous tokens (section 3.2.6) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: word/1 tests
-% TODO: phrase/1 tests
+word_test_() ->
+    ?string_list_test(fun rfc2822:word/1,
+                      [ "atom_test", "\" quoted \\\t test \"" ]).
+
+phrase_test_() -> obs_phrase_test_().
 
 utext_test_() ->
     ?random_byte_tests(fun rfc2822:utext/1,
                        [9,10,13,32,33|lists:seq(35, 91) ++
                         lists:seq(93, 126)]).
 
-% TODO: unstructured/1 tests
+unstructured_test_() ->
+    ?string_list_test(fun rfc2822:unstructured/1,
+                      [ "unstructured",
+                        "un\nstruct\r\nured",
+                        "\t\n\run\r\tSt810"
+                      ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Date and Time Specification (section 3.3) %%%
@@ -418,6 +437,7 @@ body_test_() -> [ ?_assertEqual({a,<<>>}, rfc2822:body(a)) ].
 % TODO: obs_char/1
 % TODO: obs_utext/1
 % TODO: obs_phrase/1
+obs_phrase_test_() -> [].
 % TODO: obs_phrase_list/1
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
