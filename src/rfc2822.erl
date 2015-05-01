@@ -470,21 +470,14 @@ utext(X) ->
 %% the actual 'utext' is *included* in the returned string.
 -spec unstructured(<<_:8,_:_*8>>) -> {<<_:_*8>>, binary()}.
 unstructured(X) ->
-    try
-        Func = fun(Y) ->
-                       {H1, T1} = utext(Y),
-                       {H2, T2} = parserlang:option(<<>>, fun fws/1, T1),
-                       {<<H1, H2/binary>>, T2}
-               end,
-        {H1, T1} = parserlang:option(<<>>, fun fws/1, X),
-        {H2, T2} = parserlang:many(Func, T1),
-        {parserlang:bin_concat([H1|H2]), T2}
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "unstructured text"});
-        error:{badmatch, _} -> throw({parse_error, expected,
-                                      "unstructured text"})
-    end.
+    Func = fun(Y) ->
+                   {H1, T1} = utext(Y),
+                   {H2, T2} = parserlang:option(<<>>, fun fws/1, T1),
+                   {<<H1, H2/binary>>, T2}
+           end,
+    {H1, T1} = parserlang:option(<<>>, fun fws/1, X),
+    {H2, T2} = parserlang:many(Func, T1),
+    {parserlang:bin_concat([H1|H2]), T2}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Date and Time Specification (section 3.3) %%%
