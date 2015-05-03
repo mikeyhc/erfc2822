@@ -716,7 +716,7 @@ address(X) ->
                 {H, T} = mailbox(Y),
                 {[H], T}
         end,
-    parserlang:orparse([F, {rfc2822, group}], X, "address").
+    parserlang:orparse([F, fun group/1], X, "address").
 
 %% parse a 'name_addr' or and 'addr_spec'  and return the address.
 -spec mailbox(<<_:24,_:_*8>>) -> {name_addr(), binary()}.
@@ -725,7 +725,7 @@ mailbox(X) ->
                 {H, T} = addr_spec(Y),
                 {#name_addr{addr=H}, T}
         end,
-    parserlang:orparse([F, {rfc2822, name_addr}], X, "mailbox").
+    parserlang:orparse([F, fun name_addr/1], X, "mailbox").
 
 %% parse an 'angle_addr', optionally prefaced with a 'display_name',
 %% and return the address
@@ -831,17 +831,17 @@ addr_spec(X) ->
 %% 'dot_atom' or a 'quoted_string'.
 -spec local_part(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 local_part(X) ->
-    parserlang:orparse([{rfc2822, obs_local_part},
-                        {rfc2822, dot_atom},
-                        {rfc2822, quoted_string}], X, "'address' local part").
+    parserlang:orparse([fun obs_local_part/1,
+                        fun dot_atom/1,
+                        fun quoted_string/1], X, "'address' local part").
 
 %% parse and return a "domain part" or an 'addr_spec'. That is either a
 %% 'dot_atom' or a 'domain_literal'.
 -spec domain(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 domain(X) ->
-    parserlang:orparse([{rfc2822, obs_domain},
-                        {rfc2822, dot_atom},
-                        {rfc2822, domain_literal}],
+    parserlang:orparse([fun obs_domain/1,
+                        fun dot_atom/1,
+                        fun domain_literal/1],
                        X, "'address' domain part").
 
 %% parse a "domain literal". That is a "[" character, followed by any
@@ -857,7 +857,7 @@ domain_literal(X) ->
                        {_, T1} = parserlang:char($[, Y),
                        {R, T2} = parserlang:many(DContent, T1),
                        {_, T3} = parserlang:char($], T2),
-                       {<<$[, R/binary, $]>>, T3}
+                       {parserlang:bin_concat([$[|R] ++ [$]]), T3}
                end,
     try
         unfold(DLiteral, X)
@@ -870,9 +870,11 @@ domain_literal(X) ->
 %% That is 'dtext' or a 'quoted_pair'.
 -spec dcontent(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 dcontent(X) ->
-    F = fun(Y) -> parserlang:many1(fun dtext/1, Y) end,
-    parserlang:orparse([F, {rfc2822, quoted_pair}], X,
-                       "domain literal content").
+    F = fun(Y) ->
+                {H, T} = parserlang:many1(fun dtext/1, Y),
+                {parserlang:bin_concat(H), T}
+        end,
+    parserlang:orparse([F, fun quoted_pair/1], X, "domain literal content").
 
 %% parse and return any ASCII characters except "[", "]" and "\".
 -spec dtext(<<_:8,_:_*8>>) -> {byte(), binary()}.
@@ -881,7 +883,7 @@ dtext(X) when is_binary(X) ->
     Err= {parse_error, expected, ErrStr},
     F = fun(Y) when is_binary(Y) ->
                 <<H, T/binary>> = Y,
-                if H >= 0 andalso H =< 90 orelse
+                if H >= 33 andalso H =< 90 orelse
                    H >= 94 andalso H =< 126 -> {H, T};
                    true -> throw(Err)
                 end
@@ -1608,7 +1610,7 @@ obs_local_part(X) ->
         end,
     {R1, T1} = word(X),
     {R2, T2} = parserlang:many(F, T1),
-    {parserlang:bin_join(R1, R2), T2}.
+    {parserlang:bin_concat([R1|R2]), T2}.
 
 %% parse the obsolete syntax of a 'domain', which allowed for more
 %% liberal insertion of folding whitespace and comments. The actual string
@@ -1622,7 +1624,7 @@ obs_domain(X) ->
         end,
     {R1, T1} = atom(X),
     {R2, T2} = parserlang:many(F, T1),
-    {parserlang:bin_join(R1, R2), T2}.
+    {parserlang:bin_concat([R1|R2]), T2}.
 
 %% this parser will match the obsolete syntax for a 'mailbox_list'.
 %% This one is quite weird: An 'obs_mbox_list' contains an arbitrary

@@ -384,7 +384,6 @@ zone_test_() ->
 
 % TODO: address/1
 % TODO: mailbox/1
-% TODO: name_addr/1
 % TODO: angle_addr/1
 % TODO: group/1
 % TODO: display_name/1
@@ -395,15 +394,38 @@ zone_test_() ->
 %%% Addr-spec specification (section 3.4.1) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: addr_spec/1
-% TODO: local_part/1
-% TODO: domain/1
-% TODO: domain_literal/1
-% TODO: dcontent/1
+addr_spec_test_() ->
+    [ ?string_list_test(fun rfc2822:addr_spec/1,
+                        [ "mike@atosia.net", "mike.blockley@atmosia.net",
+                          "\"mike\"@[192.168.1.1]" ]),
+      ?_assertThrow({parse_error, expected, "address specification"},
+                    rfc2822:addr_spec(<<"\0">>))
+    ].
+
+local_part_test_() ->
+    [ ?string_list_test(fun rfc2822:local_part/1,
+                        [ "mike", "mike.blockley", "\"mike\""]),
+      ?_assertThrow({parse_error, expected, "'address' local part"},
+                    rfc2822:local_part(<<"\0">>))
+    ].
+
+domain_literal_test_() ->
+    [ ?string_list_test(fun rfc2822:domain_literal/1,
+                        [ "[atmosia.net]", "[google.com]", "[192.168.1.1]" ]),
+      ?_assertThrow({parse_error, expected, "domain literal"},
+                    rfc2822:domain_literal(<<"\0">>))
+    ].
+
+dcontent_test_() ->
+    [ ?string_list_test(fun rfc2822:dcontent/1,
+                        [ "atmosia.net", "google.com", "192.168.1.1" ]),
+      ?_assertThrow({parse_error, expected, "domain literal content"},
+                    rfc2822:dcontent(<<"\0">>))
+    ].
 
 dtext_test_() ->
     ?random_byte_tests(fun rfc2822:dtext/1,
-                       lists:seq(0, 90) ++ lists:seq(94, 126)).
+                       lists:seq(33, 90) ++ lists:seq(94, 126)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Overall Message Syntax (section 3.5) %%%
