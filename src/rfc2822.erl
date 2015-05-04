@@ -708,7 +708,7 @@ zone(X) ->
 %%% Address Specification (section 3.4) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% parse a single 'mailbox' or and address 'group' and return the
+%% parse a single 'mailbox' or an address 'group' and return the
 %% address(es).
 -spec address(<<_:24,_:_*8>>) -> {<<_:16,_:_*8>>, binary()}.
 address(X) ->
@@ -736,7 +736,8 @@ name_addr(X) ->
         {Addr, T2} = angle_addr(T1),
         {#name_addr{name=Name, addr=Addr}, T2}
     catch
-        {parse_error, expected, _} -> "name addr"
+        {parse_error, expected, _} ->
+            throw({parse_error, expected, "name addr"})
     end.
 
 %% parse and 'angle_addr' or and 'obs_angle_addr' and return the address.
@@ -749,7 +750,7 @@ angle_addr(X) ->
                         {R, T3}
                 end,
     F = fun(Y) -> unfold(AngleAddr, Y) end,
-    parserlang:orparse([F, {rfc2822, obs_angle_addr}], X, "angle address").
+    parserlang:orparse([F, fun obs_angle_addr/1], X, "angle address").
 
 %% parse a "group" of addresses. That is a 'display_name', followed by a colon,
 %% optionally followed by a 'mailbox_list', followed by a semicolon. The found
@@ -759,6 +760,7 @@ angle_addr(X) ->
 %% 1> group(<<"my group: user1@example.org, user2@example.org;">>).
 %% [#name_addr{name=undefined, addr=<<"user1@example.org">>},
 %%  #name_addr{name=undefined, addr=<<"user2@example.org">>}]
+%% TODO: store the group name
 -spec group(<<_:16,_:_*8>>) -> {[name_addr()], binary()}.
 group(X) ->
     try
@@ -768,7 +770,8 @@ group(X) ->
         {_, T4} = unfold(fun(Y) -> parserlang:char($;, Y) end, T3),
         {R, T4}
     catch
-        {parse_error, expected, _} -> {parse_error, expected, "address list"}
+        {parse_error, expected, _} ->
+            throw({parse_error, expected, "address list"})
     end.
 
 %% parse and return a 'phrase'.
@@ -786,27 +789,15 @@ display_name(X) ->
 %% by a comma, and return the list of found addresses.
 -spec mailbox_list(binary()) -> {[binary()], binary()}.
 mailbox_list(X) ->
-    Mailbox = fun(Y) -> mailbox(Y) end,
     Comma = fun(Y) -> parserlang:char($,, Y) end,
-    try
-        parserlang:sepby(Mailbox, Comma, X)
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "mailbox list"})
-    end.
+    parserlang:sepby(fun mailbox/1, Comma, X).
 
 %% parse a list of 'address' addresses, every two addresses being seperated
 %% by a comma, and return the list of found addresses.
 -spec address_list(binary()) -> {[binary()], binary()}.
 address_list(X) ->
-    Address = fun(Y) -> address(Y) end,
     Comma = fun(Y) -> parserlang:char($,, Y) end,
-    try
-        parserlang:sepby(Address, Comma, X)
-    catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "address list"})
-    end.
+    parserlang:sepby(fun address/1, Comma, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Addr-spec specification (section 3.4.1) %%%
@@ -1397,7 +1388,7 @@ obs_phrase(X) ->
 
     {R1, T1} = word(X),
     {R2, T2} = parserlang:many(Choice, T1),
-    {parserlang:bin_join(R1,R2), T2}.
+    {[R1|lists:filter(fun(Y) -> Y =/= [] end, R2)], T2}.
 
 %% match a "phrase list" syntax and return the list of 'string's that make
 %% up the phrase. In contrast to a 'phrase', the 'obs_phrase_list'

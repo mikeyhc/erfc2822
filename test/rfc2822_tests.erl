@@ -7,6 +7,7 @@
 -compile([export_all]).
 -include_lib("eunit/include/eunit.hrl").
 -include("calender_time.hrl").
+-include("name_addr.hrl").
 -include("timediff.hrl").
 
 %%%%%%%%%%%%%%%%%%%%
@@ -20,8 +21,8 @@
         ]).
 
 -define(random_byte_pass_tests(Number, Fun, List),
-        lists:map(fun(X) -> ?_assertEqual({X, <<>>}, Fun(<<X>>)) end,
-                  select_n_random(Number, List))).
+        [ ?_assertEqual({X, <<>>}, Fun(<<X>>))
+          || X <- select_n_random(Number, List) ]).
 
 -define(random_byte_fail_tests(Number, Fun, List),
     lists:map(fun(X) ->
@@ -31,12 +32,17 @@
                               lists:subtract(lists:seq(0,255), List)))).
 
 -define(string_list_test(Func, List),
-    [ lists:map(fun(X) ->
-                        B = binary:list_to_bin(X),
-                        ?_assertEqual({B, <<>>}, Func(B))
-                end, List),
-      ?_assertError({badarg, a}, Func(a))
-    ]).
+        ?string_list_pair_test(Func, [ {X, X} || X <- List ])).
+
+-define(string_list_pair_test(Func, List),
+        ?list_pair_test(Func,
+                        [ {binary:list_to_bin(A),
+                           binary:list_to_bin(B)} || {A, B} <- List ])).
+
+-define(list_pair_test(Func, List),
+        [ [ ?_assertEqual({X, <<>>}, Func(Y)) || {X, Y} <- List ],
+          ?_assertError({badarg, a}, Func(a))
+        ]).
 
 select_n_random(N, L) ->
     <<A:32, B:32, C:32>> = crypto:rand_bytes(12),
@@ -383,12 +389,96 @@ zone_test_() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % TODO: address/1
-% TODO: mailbox/1
-% TODO: angle_addr/1
-% TODO: group/1
-% TODO: display_name/1
-% TODO: mailbox_list/1
-% TODO: address_list/1
+
+mailbox_test_() ->
+    [ ?list_pair_test(fun rfc2822:mailbox/1,
+                      [ {#name_addr{addr= <<"mike@atmosia.net">>},
+                         <<"mike@atmosia.net">>},
+                        {#name_addr{name= <<"\"Michael Blockley\"">>,
+                                    addr= <<"mike@atmosia.net">>},
+                         <<"\"Michael Blockley\" <mike@atmosia.net>">>}
+                      ]),
+      ?_assertThrow({parse_error, expected, "mailbox"},
+                    rfc2822:mailbox(<<"\0">>))
+    ].
+
+name_addr_test_() ->
+    [ ?list_pair_test(fun rfc2822:name_addr/1,
+                      [ {#name_addr{addr= <<"mike@atmosia.net">>},
+                         <<"<mike@atmosia.net>">>},
+                        {#name_addr{name= <<"\"Michael Blockley\"">>,
+                                    addr= <<"mike@atmosia.net">>},
+                         <<"\"Michael Blockley\" <mike@atmosia.net>">>}
+                      ]),
+      ?_assertThrow({parse_error, expected, "name addr"},
+                    rfc2822:name_addr(<<"\0">>))
+    ].
+
+angle_addr_test_() ->
+    [ ?string_list_pair_test(fun rfc2822:angle_addr/1,
+                             lists:map(fun(X) ->
+                                               {X, "<" ++ X ++ ">"}
+                                       end,
+                                       [ "mike@atmosia.net",
+                                         "mike.blockley@atmosia.net",
+                                         "\"mike\"@[192.168.1.1]" ])),
+      ?_assertThrow({parse_error, expected, "angle address"},
+                    rfc2822:angle_addr(<<"\0">>))
+    ].
+
+group_test_() ->
+    [ ?list_pair_test(fun rfc2822:group/1,
+                      [ {[], <<"group: ;">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          <<"group: mike@atmosia.net; ">>]},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                     name= <<"\"Michael Blockley\"">>}],
+                         <<"group: <mike@atmosia.net>, \"Michael Blockley\" "
+                         "<mike@atmosia.net>;">>}
+                      ]),
+      ?_assertThrow({parse_error, expected, "address list"},
+                    rfc2822:group(<<"\0">>))
+    ].
+
+display_name_test_() ->
+    [ ?string_list_test(fun rfc2822:display_name/1,
+                        [ "mike", "\"mike blockley\""]),
+      ?_assertThrow({parse_error, expected, "display name"},
+                    rfc2822:display_name(<<"\0">>))
+    ].
+
+mailbox_list_test_() ->
+    [ ?list_pair_test(fun rfc2822:mailbox_list/1,
+                      [ {[], <<"">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          <<"mike@atmosia.net">>]},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                     name= <<"\"Michael Blockley\"">>}],
+                         <<"<mike@atmosia.net>, \"Michael Blockley\" "
+                         "<mike@atmosia.net>">>}
+                      ])
+    ].
+
+address_list_test_() ->
+    [ ?list_pair_test(fun rfc2822:address_list/1,
+                      [ {[], <<"">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          <<"mike@atmosia.net">>]},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>}],
+                          [#name_addr{addr= <<"mike@atmosia.net">>,
+                                     name= <<"\"Michael Blockley\"">>}]],
+                         <<"<mike@atmosia.net>, \"Michael Blockley\" "
+                         "<mike@atmosia.net>">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>},
+                           #name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}],
+                          [#name_addr{addr= <<"mike@atmosia.net">>}]],
+                         <<"group: <mike@atmosia.net>, \"Michael Blockley\" "
+                           "<mike@atmosia.net>;, <mike@atmosia.net>">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Addr-spec specification (section 3.4.1) %%%
@@ -396,7 +486,7 @@ zone_test_() ->
 
 addr_spec_test_() ->
     [ ?string_list_test(fun rfc2822:addr_spec/1,
-                        [ "mike@atosia.net", "mike.blockley@atmosia.net",
+                        [ "mike@atmosia.net", "mike.blockley@atmosia.net",
                           "\"mike\"@[192.168.1.1]" ]),
       ?_assertThrow({parse_error, expected, "address specification"},
                     rfc2822:addr_spec(<<"\0">>))
