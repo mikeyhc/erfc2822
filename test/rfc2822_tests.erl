@@ -388,7 +388,25 @@ zone_test_() ->
 %%% Address Specification (section 3.4) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: address/1
+address_test_() ->
+    [ ?list_pair_test(fun rfc2822:mailbox/1,
+                      [ {#name_addr{addr= <<"mike@atmosia.net">>},
+                         <<"mike@atmosia.net">>},
+                        {#name_addr{name= <<"\"Michael Blockley\"">>,
+                                    addr= <<"mike@atmosia.net">>},
+                         <<"\"Michael Blockley\" <mike@atmosia.net>">>}
+                      ]),
+      ?list_pair_test(fun rfc2822:group/1,
+                      [ {[], <<"group: ;">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          <<"group: mike@atmosia.net; ">>]},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                     name= <<"\"Michael Blockley\"">>}],
+                         <<"group: <mike@atmosia.net>, \"Michael Blockley\" "
+                         "<mike@atmosia.net>;">>}
+                      ])
+    ].
 
 mailbox_test_() ->
     [ ?list_pair_test(fun rfc2822:mailbox/1,
