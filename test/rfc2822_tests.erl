@@ -553,23 +553,59 @@ body_test_() -> [ ?_assertEqual({a,<<>>}, rfc2822:body(a)) ].
 %%% The origination date field (section 3.6.1) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: orig_date/1
+orig_date_test_() ->
+    [ ?list_pair_test(fun rfc2822:orig_date/1,
+                      [ {#calender_time{year=1900, month=january, day=1,
+                                        hour=0, min=0, sec=0,
+                                        tz_diff=0, week_day=undefined},
+                         <<"Date: 1 Jan 1900 00:00:00 +0000\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Originator fields (section 3.6.2) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: from/1
-% TODO: sender/1
-% TODO: reply_to/1
+from_test_() ->
+    [ ?list_pair_test(fun rfc2822:from/1,
+                      [ {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"From: mike@atmosia.net\r\n">>} ])
+    ].
+
+sender_test_() ->
+    [ ?list_pair_test(fun rfc2822:sender/1,
+                      [ {#name_addr{addr= <<"mike@atmosia.net">>},
+                         <<"Sender: mike@atmosia.net\r\n">>} ])
+    ].
+
+reply_to_test_() ->
+    [ ?list_pair_test(fun rfc2822:reply_to/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"Reply-to: mike@atmosia.net\r\n">>} ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Destination address fields (section 3.6.3) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: to/1
-% TODO: cc/1
-% TODO: bcc/1
+to_test_() ->
+    [ ?list_pair_test(fun rfc2822:to/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"To: mike@atmosia.net\r\n">>} ])
+    ].
+
+cc_test_() ->
+    [ ?list_pair_test(fun rfc2822:cc/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"Cc: mike@atmosia.net\r\n">>} ])
+    ].
+
+bcc_test_() ->
+    [ ?list_pair_test(fun rfc2822:bcc/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"Bcc: mike@atmosia.net\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Identification fields (section 3.6.4) %%%

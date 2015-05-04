@@ -978,7 +978,7 @@ sender(X) -> header("Sender", fun mailbox/1, X).
 
 %% parse a "reply-to" header line and return the 'address_list'
 %% addres(es) contained in it.
--spec reply_to(<<_:88,_:_*8>>) -> {binary(), binary()}.
+-spec reply_to(<<_:88,_:_*8>>) -> {[binary()], binary()}.
 reply_to(X) -> header("Reply-to", fun address_list/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -999,11 +999,13 @@ cc(X) -> header("Cc", fun address_list/1, X).
 %% address(es) contained in it.
 -spec bcc(<<_:56,_:_*8>>) -> {binary(), binary()}.
 bcc(X) ->
-    F = fun(Y) ->
-                {_, T} = parserlang:optional(fun cfws/1, Y),
-                {<<>>, T}
-        end,
-    parserlang:orparse([{rfc2822, address_list}, F], X, "Bcc").
+    %F = fun(Y) ->
+    %            {_, T} = parserlang:optional(fun cfws/1, Y),
+    %            {<<>>, T}
+    %    end,
+    %Or = fun(Y) -> parserlang:orparse([fun address_list/1, F], Y, "Bcc") end,
+    %header("Bcc", Or, X).
+    header("Bcc", fun address_list/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Identification fields (section 3.6.4) %%%
