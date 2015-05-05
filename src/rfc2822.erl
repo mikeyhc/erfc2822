@@ -1053,31 +1053,36 @@ msg_id(X) ->
 %% 'local_part' or an email address, but with stricter rules about folding
 %% and whitespace.
 -spec id_left(binary()) -> {binary(), binary()}.
-id_left(X) -> parserlang:orparse([{rfc2822, dot_atom_text},
-                                  {rfc2822, no_fold_quote}],
+id_left(X) -> parserlang:orparse([fun dot_atom_text/1,
+                                  fun no_fold_quote/1],
                                  X, "left part of message ID").
 
 %% parse a "right ID" part of a 'msg_id'. This is almost identical to the
 %% 'domain' of an email address, but with stricter rules about folding and
 %% whitespace.
 -spec id_right(binary()) -> {binary(), binary()}.
-id_right(X) -> parserlang:orparse([{rfc2822, dot_atom_text},
-                                   {rfc2822, no_fold_literal}],
-                                   X, "right part of mesasge ID").
+id_right(X) -> parserlang:orparse([fun dot_atom_text/1,
+                                   fun no_fold_literal/1],
+                                   X, "right part of message ID").
 
 %% parse one or more occurances of 'qtext' or 'quoted_pair' and return the
 %% concatenated string. this makes up the 'id_left' of a 'msg_id'.
 -spec no_fold_quote(<<_:24,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.
 no_fold_quote(X) ->
-    ManyQText = fun(Y) -> parserlang:many1(fun qtext/1, Y) end,
-    F = fun(Y) -> parserlang:option([ManyQText, {rfc2822, quoted_pair}],
-                                    Y, "non-folding quoted string")
+    ManyQText = fun(Y) ->
+                        {R, T} = parserlang:many1(fun qtext/1, Y),
+                        {parserlang:bin_concat(R), T}
+                end,
+    F = fun(Y) ->
+                parserlang:orparse([ManyQText, fun quoted_pair/1], Y,
+                                   "no fold quote")
         end,
     try
         {_, T1} = rfc2234:dquote(X),
         {R, T2} = parserlang:many(F, T1),
         {_, T3} = rfc2234:dquote(T2),
-        {<<$", R/binary, $">>, T3}
+        BC = parserlang:bin_concat(R),
+        {<<$", BC/binary, $">>, T3}
     catch
         {parse_error, expected, _} -> throw({parse_error, expected,
                                              "non-folding quoted string"})
@@ -1087,15 +1092,19 @@ no_fold_quote(X) ->
 %% the concatenated string. this makes up the 'id_right' of a 'msg_id'.
 -spec no_fold_literal(<<_:24,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.
 no_fold_literal(X) ->
-    ManyDText = fun(Y) -> parserlang:many1(fun dtext/1, Y) end,
-    F = fun(Y) -> parserlang:option([ManyDText, {rfc2822, quoted_pair}],
-                                    Y, "non-folding domain literal")
+    ManyDText = fun(Y) ->
+                        {R, T} = parserlang:many1(fun dtext/1, Y),
+                        {parserlang:bin_concat(R), T}
+                end,
+    F = fun(Y) -> parserlang:orparse([ManyDText, fun quoted_pair/1],
+                                     Y, "non-folding domain literal")
         end,
     try
         {_, T1} = parserlang:char($[, X),
         {R, T2} = parserlang:many(F, T1),
         {_, T3} = parserlang:char($], T2),
-        {<<$[, R/binary, $]>>, T3}
+        BC = parserlang:bin_concat(R),
+        {<<$[, BC/binary, $]>>, T3}
     catch
         {parse_error, expected, _} -> throw({parse_error, expected,
                                              "non-folding domain literal"})
@@ -1417,7 +1426,9 @@ obs_phrase_list(X) ->
                  end,
     {R1, T1} = parserlang:many1(ManyPhrase, X),
     {R2, T2} = parserlang:option(<<>>, fun phrase/1, T1),
-    {[R1|lists:filter(fun(Y) -> Y =/= <<>> end, R2)], T2}.
+    if R2 =/= <<>> -> {lists:filter(fun(Y) -> Y =/= <<>> end, R1) ++ [R2], T2};
+       true        -> {lists:filter(fun(Y) -> Y =/= <<>> end, R1), T2}
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete folding white space (section 4.2) %%%

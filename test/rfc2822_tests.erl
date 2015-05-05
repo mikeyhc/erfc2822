@@ -611,9 +611,78 @@ bcc_test_() ->
 %%% Identification fields (section 3.6.4) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: message_id/1
-% TODO: in_reply_to/1
-% TODO: references/1
+message_id_test_() ->
+    [ ?list_pair_test(fun rfc2822:message_id/1,
+                      [ {<<"<abc.1234@atmosia.net>">>,
+                         <<"Message-ID: <abc.1234@atmosia.net>\r\n">>},
+                        {<<"<\"xyzabc\"@[192.168.1.1]>">>,
+                         <<"Message-ID: <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
+
+in_reply_to_test_() ->
+    [ ?list_pair_test(fun rfc2822:in_reply_to/1,
+                      [ {[<<"<abc.1234@atmosia.net>">>],
+                         <<"In-Reply-To: <abc.1234@atmosia.net>\r\n">>},
+                        {[<<"<abc.1234@atmosia.net>">>,
+                          <<"<\"xyzabc\"@[192.168.1.1]>">>],
+                         <<"In-Reply-To: <abc.1234@atmosia.net>\r\n"
+                           "             <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
+
+
+
+references_test_() ->
+    [ ?list_pair_test(fun rfc2822:references/1,
+                      [ {[<<"<abc.1234@atmosia.net>">>],
+                         <<"References: <abc.1234@atmosia.net>\r\n">>},
+                        {[<<"<abc.1234@atmosia.net>">>,
+                          <<"<\"xyzabc\"@[192.168.1.1]>">>],
+                         <<"References: <abc.1234@atmosia.net>\r\n"
+                           "            <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
+
+
+msg_id_test_() ->
+    [ ?string_list_test(fun rfc2822:msg_id/1,
+                        [ "<abc.1234@abc.1234>",
+                          "<\"xyzabc\"@[192.168.1.1]>"
+                        ]),
+      ?_assertThrow({parse_error, expected, "message id"},
+                    rfc2822:msg_id(<<"\0">>))
+    ].
+
+id_left_test_() ->
+    [ ?string_list_test(fun rfc2822:id_left/1,
+                        [ "abc.1234", "\"xyzabc\"" ]),
+      ?_assertThrow({parse_error, expected, "left part of message ID"},
+                    rfc2822:id_left(<<"\0">>))
+    ].
+
+id_right_test_() ->
+    [ ?string_list_test(fun rfc2822:id_right/1,
+                        [ "abc.1234", "[192.168.1.1]"]),
+      ?_assertThrow({parse_error, expected, "right part of message ID"},
+                    rfc2822:id_right(<<"\0">>))
+    ].
+
+no_fold_quote_test_() ->
+    [ ?string_list_test(fun rfc2822:no_fold_quote/1,
+                        [ "\"\\quoted\"",
+                          "\"non.quoted\"" ]),
+      ?_assertThrow({parse_error, expected, "non-folding quoted string"},
+                    rfc2822:no_fold_quote(<<"\0">>))
+    ].
+
+no_fold_literal_test_() ->
+    [ ?string_list_test(fun rfc2822:no_fold_literal/1,
+                        [ "[\\qouted]",
+                          "[non.quoted]" ]),
+      ?_assertThrow({parse_error, expected, "non-folding domain literal"},
+                    rfc2822:no_fold_literal(<<"\0">>))
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Informational fields (section 3.6.5) %%%
@@ -722,9 +791,15 @@ resent_bcc_test_() ->
                       ])
     ].
 
-% TODO: resent_msg_id/1
-% NB: resent_msg_id/1 is buggy, there it a fix on a local branch on my work
-%     machine which I will push soon-ish
+resent_msg_id_test_() ->
+    [ ?list_pair_test(fun rfc2822:resent_msg_id/1,
+                      [ {<<"<abc.1234@atmosia.net>">>,
+                         <<"Resent-Message-ID: <abc.1234@atmosia.net>\r\n">>},
+                        {<<"<\"xyzabc\"@[192.168.1.1]>">>,
+                         <<"Resent-Message-ID: "
+                           "<\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace Fields (section 3.6.7) %%%
@@ -874,7 +949,16 @@ obs_phrase_test_() ->
                       ])
     ].
 
-% TODO: obs_phrase_list/1
+obs_phrase_list_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_phrase_list/1,
+                      [ {[[<<"abc">>]], <<"abc,">>},
+                        {[[<<"abc">>,<<".">>,<<"xyz">>]],
+                         <<"abc.xyz,">>},
+                        {[[<<"abc">>,<<".">>,<<"xyz">>],
+                          [<<"123">>,<<".">>,<<"456">>]],
+                         <<"abc.xyz, 123.456">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete folding white space (section 4.2) %%%
