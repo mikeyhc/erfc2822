@@ -1442,11 +1442,11 @@ obs_fws(X) ->
     F = fun(Y) ->
                 {R1, T1} = rfc2234:crlf(Y),
                 {R2, T2} = parserlang:many1(fun rfc2234:wsp/1, T1),
-                {parserlang:bin_join(R1, R2), T2}
+                {parserlang:bin_concat([R1|R2]), T2}
         end,
     {R1, T1} = parserlang:many1(fun rfc2234:wsp/1, X),
     {R2, T2} = parserlang:many(F, T1),
-    {parserlang:bin_join(R1, R2), T2}.
+    {parserlang:bin_concat(R1 ++ R2), T2}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete Date and Time (section 4.3) %%%
@@ -1482,8 +1482,7 @@ obs_year(X) ->
 
 %% parse a 'month_name' but allow for the obsolete folding syntax.
 -spec obs_month(<<_:24,_:_*8>>) -> {month(), binary()}.
-obs_month(X) ->
-    parserlang:between(fun cfws/1, fun cfws/1, fun month_name/1, X).
+obs_month(X) -> unfold(fun month_name/1, X).
 
 %% parse a 'day' but allow for the obsolete folding syntax
 -spec obs_day(<<_:8,_:_*8>>) -> {integer(), binary()}.

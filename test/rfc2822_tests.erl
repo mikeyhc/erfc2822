@@ -916,6 +916,8 @@ ftext_test_() ->
 %%% Miscellaneous obsolete tokens (section 4.1) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+obs_text_test_set() -> [ "text", "\n\n\rtext" ].
+
 obs_qp_test_() ->
     [ ?string_list_test(fun rfc2822:obs_qp/1,
                         [ "\\a", "\\b", "\\\n", "\\\r" ]),
@@ -926,8 +928,7 @@ obs_qp_test_() ->
     ].
 
 obs_text_test_() ->
-    [ ?string_list_test(fun rfc2822:obs_text/1,
-                        [ "text", "\n\n\rtext" ])
+    [ ?string_list_test(fun rfc2822:obs_text/1, obs_text_test_set())
     ].
 
 obs_char_test_() ->
@@ -939,7 +940,9 @@ obs_char_test_() ->
                     rfc2822:obs_char(<<>>))
     ].
 
-obs_utext_test_() -> obs_text_test_().
+obs_utext_test_() ->
+    [ ?string_list_test(fun rfc2822:obs_utext/1, obs_text_test_set())
+    ].
 
 obs_phrase_test_() ->
     [ ?list_pair_test(fun rfc2822:obs_phrase/1,
@@ -964,26 +967,63 @@ obs_phrase_list_test_() ->
 %%% Obsolete folding white space (section 4.2) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_fws/1
+obs_fws_test_() ->
+    [ ?string_list_test(fun rfc2822:obs_fws/1,
+                        [ "\t", " ", " \r\n " ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete Date and Time (section 4.3) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_day_of_week/1
-
-obs_year_test_() ->
-    [ ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"01">>)),
-      ?_assertEqual({1999, <<>>}, rfc2822:obs_year(<<"99">>)),
-      ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"2001">>)),
-      ?_assertEqual({2001, <<>>}, rfc2822:obs_year(<<"  2001\t">>)),
-      ?_assertThrow({parse_error, expected, "year"},
-                    rfc2822:obs_year(<<"a">>)),
-      ?_assertError({badarg, a}, rfc2822:obs_year(a))
+obs_day_of_week_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_day_of_week/1,
+                      [ {monday, <<"\tMon  ">>},
+                        {tuesday, <<"\r\n Tue">>},
+                        {wednesday, <<" Wed\r\n ">>},
+                        {thursday, <<"Thu">>},
+                        {friday, <<"Fri">>},
+                        {saturday, <<"Sat">>},
+                        {sunday, <<"Sun">>}
+                      ]),
+      ?_assertThrow({parse_error, expected, "day of the week name"},
+                    rfc2822:obs_day_of_week(<<"\0">>))
     ].
 
-% TODO: obs_month/1
-% TODO: obs_day/1
+obs_year_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_year/1,
+                      [ {2001, <<"01">>},
+                        {1999, <<"99">>},
+                        {2001, <<"2001">>},
+                        {2001, <<"    2001\t">>}
+                      ]),
+      ?_assertThrow({parse_error, expected, "year"},
+                    rfc2822:obs_year(<<"a">>))
+    ].
+
+obs_month_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_month/1,
+                      [ {january, <<"\tJan ">>},
+                        {feburary, <<"\r\n Feb">>},
+                        {march, <<" Mar\r\n ">>},
+                        {april, <<"Apr">>},
+                        {may, <<"May">>},
+                        {june, <<"Jun">>},
+                        {july, <<"Jul">>},
+                        {august, <<"Aug">>},
+                        {september, <<"Sep">>},
+                        {october, <<"Oct">>},
+                        {november, <<"Nov">>},
+                        {december, <<"Dec">>} ])
+    ].
+
+obs_day_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_day/1,
+                      [ {1, <<"  01">>},
+                        {2, <<"\t02\r\n ">>},
+                        {3, <<"\r\n 03">>}
+                      ])
+    ].
 
 obs_hour_test_() ->
     [ ?_assertEqual({20, <<>>}, rfc2822:obs_hour(<<"  20  ">>)) ].
@@ -994,15 +1034,39 @@ obs_minute_test_() ->
 obs_second_test_() ->
     [ ?_assertEqual({20, <<>>}, rfc2822:obs_second(<<"\t20">>)) ].
 
-% TODO: obs_zone/1
+obs_zone_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_zone/1,
+                      [ {0, <<"UT">>},
+                        {0, <<"GMT">>},
+                        {-5 * 3600, <<"EST">>},
+                        {-4 * 3600,  <<"EDT">>},
+                        {-6 * 3600, <<"CST">>},
+                        {-5 * 3600, <<"CDT">>},
+                        {-7 * 3600, <<"MST">>},
+                        {-6 * 3600, <<"MDT">>},
+                        {-8 * 3600, <<"PST">>},
+                        {-7 * 3600, <<"PDT">>},
+                        {0, <<"A">>},
+                        {3600, <<"B">>},
+                        {($K - $B) * 3600, <<"K">>},
+                        {-3600, <<"N">>},
+                        {-($O - $M) * 3600, <<"O">>},
+                        {0, <<"Z">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete Addressing (section 4.4) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_angle_addr/1
+%obs_angle_addr_test_() ->
+%    [ ?list_pair_test(fun rfc2822:obs_angle_addr/1,
+%                      [ {<<"<mike@atmosia.net>">>,
+%                         <<"<@example1.org,@example2.org:mike@atmosia.net>">>}
+%                      ])
+%    ].
+
 % TODO: obs_route/1
-% TODO: obs_domain_list/1
 % TODO: obs_local_part/1
 % TODO: obs_domain/1
 % TODO: obs_mbox_list/1
