@@ -1166,13 +1166,16 @@ resent_cc(X) -> header("Resent-Cc", fun address_list/1, X).
 %% address(es) contained in it. (This list may be empty.)
 -spec resent_bcc(<<_:104,_:_*8>>) -> {[#name_addr{}], binary()}.
 resent_bcc(X) ->
-    BccText = fun(Y) ->
-                      {_, T1} = parserlang:optional(fun cfws/1, Y),
-                      {<<>>, T1}
-              end,
-    Options = fun(Y) -> parserlang:orparse([fun rfc2822:address_list/1,
-                                            BccText], Y,
-                                           "Resent-Bcc header line")
+    Options = fun(Y) ->
+                      {R, T} = rfc2822:address_list(Y),
+                      % this is a hack to deal with the differences in the
+                      % parserlang sepby and the haskell one
+                      case R of
+                          [] ->
+                              {_, NT} = parserlang:many(fun rfc2234:wsp/1, T),
+                              {R, NT};
+                          _  -> {R, T}
+                      end
               end,
     header("Resent-Bcc", Options, X).
 
@@ -1206,7 +1209,7 @@ path(X) ->
 %% parse a "received" header line and returns the 'name_val_list'
 %% followed by 'date_time' contained in it.
 -spec received(<<_:88,_:_*8>>)
-      -> {{[{binary(), binary()}], binary()}, binary()}.
+      -> {{[{binary(), binary()}], #calender_time{}}, binary()}.
 received(X) ->
     F = fun(Y) ->
                 {R1, T1} = name_val_list(Y),
@@ -1282,6 +1285,7 @@ item_value(X) ->
 %% *not* contain the terminating colon.
 -spec optional_field(<<_:32,_:_*8>>) -> {{<<_:8,_:_*8>>, binary()}, binary()}.
 optional_field(X) ->
+    Err = {parse_error, expected, "optional (unspecified) header line"},
     try
         {N, T1} = field_name(X),
         {_, T2} = parserlang:char($:, T1),
@@ -1289,9 +1293,8 @@ optional_field(X) ->
         {_, T4} = rfc2234:crlf(T3),
         {{N, B}, T4}
     catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "optional (unspecified) "
-                                             "header line"})
+        {parse_error, expected, _} -> throw(Err);
+        error:{badmatch, _} -> throw(Err)
     end.
 
 %% parse and return an arbitrary header field name. that is one or more
@@ -1299,24 +1302,29 @@ optional_field(X) ->
 -spec field_name(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
 field_name(X) ->
     try
-        parserlang:many1(fun ftext/1, X)
+        {R, T} = parserlang:many1(fun ftext/1, X),
+        {parserlang:bin_concat(R), T}
     catch
         {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "header line name"});
-        error:{badmatch, _} -> throw({parse_error, expected,
-                                      "header line name"})
+                                             "header line name"})
     end.
 
 %% match and return any ASCII character except for control characters,
 %% whitespace and ":"
 -spec ftext(<<_:8,_:_*8>>) -> {33..57 | 59..126, binary()}.
 ftext(X) when is_binary(X) ->
-    <<H, T/binary>> = X,
-    if H >= 33 andalso H =< 57 orelse
-       H >= 59 andalso H =< 126 -> {H, T};
-       true -> throw({parse_error, expected,
-                      "character (excluding controls, space and ':'"})
-    end.
+    Err = {parse_error, expected,
+           "character (excluding controls, space and ':'"},
+    try
+        <<H, T/binary>> = X,
+        if H >= 33 andalso H =< 57 orelse
+           H >= 59 andalso H =< 126 -> {H, T};
+           true -> throw(Err)
+        end
+    catch
+        error:{badmatch, _} -> throw(Err)
+    end;
+ftext(X) -> error({badarg, X}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Miscellaneous obsolete tokens (section 4.1) %%%
@@ -1337,7 +1345,8 @@ obs_qp(X) when is_binary(X) ->
     catch
         {parse_error, expected, _} -> throw(Err);
         error:{badmatch, _} -> throw(Err)
-    end.
+    end;
+obs_qp(X) -> error({badarg, X}).
 
 %% match the obsolete "text" syntax, which - unlike 'text'- allowed
 %% "carriage returns" and "line feeds". This is really weird; you better
@@ -1349,12 +1358,12 @@ obs_text(X) ->
                 {R1, T1} = obs_char(Y),
                 {R2, T2} = parserlang:many(fun rfc2234:lf/1, T1),
                 {R3, T3} = parserlang:many(fun rfc2234:cr/1, T2),
-                {parserlang:bin_concat([R1, R2, R3]), T3}
+                {parserlang:bin_concat([R1|R2 ++ R3]), T3}
         end,
     {R1, T1} = parserlang:many(fun rfc2234:lf/1, X),
     {R2, T2} = parserlang:many(fun rfc2234:cr/1, T1),
     {R3, T3} = parserlang:many(F, T2),
-    {parserlang:bin_concat([R1, R2, R3]), T3}.
+    {parserlang:bin_concat(R1 ++ R2 ++ R3), T3}.
 
 %% match and return the obsolete "char" syntax, whicch - unlike 'character'
 %% - did not allow "carriage return" and "line feed".
@@ -1370,8 +1379,9 @@ obs_char(X) when is_binary(X) ->
         end
     catch
         {parse_error, expected, _} -> throw(Err);
-        error:{badarg, _} -> throw(Err)
-    end.
+        error:{badmatch, _} -> throw(Err)
+    end;
+obs_char(X) -> error({badarg, X}).
 
 %% match and return the obsolete "utext" syntax, which is identical to
 %% 'obs_text'.
@@ -1383,13 +1393,15 @@ obs_utext(X) -> obs_text(X).
 -spec obs_phrase(binary()) -> {binary(), binary()}.
 obs_phrase(X) ->
     Choice = parserlang:choice([fun word/1,
-                                fun(Y) -> parserlang:char($., Y) end,
+                                fun(Y) ->
+                                        {R, T} = parserlang:char($., Y),
+                                        {<<R>>, T}
+                                end,
                                 fun(Y) -> {_, T1} = cfws(Y), {<<>>, T1} end],
                                "obsolete phrase text"),
-
     {R1, T1} = word(X),
     {R2, T2} = parserlang:many(Choice, T1),
-    {[R1|lists:filter(fun(Y) -> Y =/= [] end, R2)], T2}.
+    {[R1|lists:filter(fun(Y) -> Y =/= <<>> end, R2)], T2}.
 
 %% match a "phrase list" syntax and return the list of 'string's that make
 %% up the phrase. In contrast to a 'phrase', the 'obs_phrase_list'
@@ -1403,13 +1415,9 @@ obs_phrase_list(X) ->
                                           T1),
                          {R, T2}
                  end,
-    ObsPhrase = fun(Y) ->
-                        {R1, T1} = parserlang:many1(ManyPhrase, Y),
-                        {R2, T2} = parserlang:option(<<>>, fun phrase/1, T1),
-                        {parserlang:bin_join(R1,R2), T2}
-                end,
-    parserlang:orparse([ObsPhrase, {rfc2822, phrase}], X,
-                       "obsolete phrase list").
+    {R1, T1} = parserlang:many1(ManyPhrase, X),
+    {R2, T2} = parserlang:option(<<>>, fun phrase/1, T1),
+    {[R1|lists:filter(fun(Y) -> Y =/= <<>> end, R2)], T2}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete folding white space (section 4.2) %%%

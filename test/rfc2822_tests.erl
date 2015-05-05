@@ -643,7 +643,9 @@ keywords_test_() ->
                         {[[<<"abc">>, <<"xyz">>]],
                          <<"Keywords: abc xyz\r\n">>},
                         {[[<<"abc">>, <<"xyz">>, <<"123">>]],
-                         <<"Keywords: abc xyz\r\n 123\r\n">>}
+                         <<"Keywords: abc xyz\r\n 123\r\n">>},
+                        {[[<<"abc">>, <<"xyz">>], [<<"123">>]],
+                         <<"Keywords: abc xyz, 123\r\n">>}
                       ])
     ].
 
@@ -715,7 +717,8 @@ resent_bcc_test_() ->
                           [#name_addr{addr= <<"mike@atmosia.net">>,
                                       name= <<"\"Michael Blockley\"">>}]],
                          <<"Resent-Bcc: <mike@atmosia.net>, "
-                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>},
+                        {[], <<"Resent-Bcc: \r\n">>}
                       ])
     ].
 
@@ -764,7 +767,9 @@ name_val_list_test_() ->
                               " a-xy-02 <mike@atmosia.net>\r\n"
                               " a-xy-03 <mike@atmosia.net>\r\n"
                               "         <bob@atmosia.net>">>
-                        }])
+                        }]),
+      ?_assertThrow({parse_error, expected, "list of name/value pairs"},
+                    rfc2822:name_val_list(<<"\0">>))
     ].
 
 name_val_pair_test_() ->
@@ -806,19 +811,69 @@ item_value_test_() ->
 %%% Optional Fields (section 3.6.8) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: optional_field/1
-% TODO: field_name/1
+optional_field_test_() ->
+    [ ?list_pair_test(fun rfc2822:optional_field/1,
+                      [{{<<"field-a">>, <<" a">>},
+                        <<"field-a: a\r\n">>},
+                       {{<<"field-b">>, <<" a\r\n b">>},
+                        <<"field-b: a\r\n b\r\n">>}
+                      ]),
+      ?_assertThrow({parse_error, expected,
+                     "optional (unspecified) header line"},
+                    rfc2822:optional_field(<<"\0">>)),
+      ?_assertThrow({parse_error, expected,
+                     "optional (unspecified) header line"},
+                    rfc2822:optional_field(<<"field-a: a">>))
+    ].
+
+field_name_test_() ->
+    [ ?string_list_test(fun rfc2822:field_name/1,
+                        [ "additional_field",
+                          "another-field",
+                          "field-007" ])
+    ].
+
+ftext_test_() ->
+    ?random_byte_tests(fun rfc2822:ftext/1,
+                       lists:seq(33, 57) ++ lists:seq(59, 126)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Miscellaneous obsolete tokens (section 4.1) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_qp/1
-% TODO: obs_text/1
-% TODO: obs_char/1
-% TODO: obs_utext/1
-% TODO: obs_phrase/1
-obs_phrase_test_() -> [].
+obs_qp_test_() ->
+    [ ?string_list_test(fun rfc2822:obs_qp/1,
+                        [ "\\a", "\\b", "\\\n", "\\\r" ]),
+      ?_assertThrow({parse_error, expected, "any quoted US-ASCII character"},
+                    rfc2822:obs_qp(<<"xy">>)),
+      ?_assertThrow({parse_error, expected, "any quoted US-ASCII character"},
+                    rfc2822:obs_qp(<<"\\">>))
+    ].
+
+obs_text_test_() ->
+    [ ?string_list_test(fun rfc2822:obs_text/1,
+                        [ "text", "\n\n\rtext" ])
+    ].
+
+obs_char_test_() ->
+    [ ?random_byte_tests(fun rfc2822:obs_char/1,
+                         lists:seq(0, 9) ++ [11, 12] ++
+                         lists:seq(14, 127)),
+      ?_assertThrow({parse_error, expected,
+                     "any ASCII character except CR and LF"},
+                    rfc2822:obs_char(<<>>))
+    ].
+
+obs_utext_test_() -> obs_text_test_().
+
+obs_phrase_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_phrase/1,
+                      [ {[<<"abc">>], <<"abc">>},
+                        {[<<"abc">>, <<"xyz">>], <<"abc xyz">>},
+                        {[<<"abc">>, <<".">>, <<"xyz">>], <<"abc.xyz">>}
+                      ])
+    ].
+
 % TODO: obs_phrase_list/1
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
