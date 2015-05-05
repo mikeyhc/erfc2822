@@ -223,14 +223,14 @@ phrase_test_() -> obs_phrase_test_().
 
 utext_test_() ->
     ?random_byte_tests(fun rfc2822:utext/1,
-                       [9,10,13,32,33|lists:seq(35, 91) ++
+                       [9,32,33|lists:seq(35, 91) ++
                         lists:seq(93, 126)]).
 
 unstructured_test_() ->
     ?string_list_test(fun rfc2822:unstructured/1,
                       [ "unstructured",
-                        "un\nstruct\r\nured",
-                        "\t\n\run\r\tSt810"
+                        "un\r\n struct\r\n ured",
+                        "\t\r\n un\r\n\tSt810"
                       ]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -619,28 +619,188 @@ bcc_test_() ->
 %%% Informational fields (section 3.6.5) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: subject/1
-% TODO: comments/1
-% TODO: keywords/1
+subject_test_() ->
+    [ ?string_list_pair_test(fun rfc2822:subject/1,
+                             [ {" this is a subject",
+                                "Subject: this is a subject\r\n"},
+                               {" also a\r\n subject",
+                                "Subject: also a\r\n subject\r\n"}
+                             ])
+    ].
+
+comments_test_() ->
+    [ ?string_list_pair_test(fun rfc2822:comments/1,
+                             [ {" this is a comment",
+                                "Comments: this is a comment\r\n"},
+                               {" also a\r\n comment",
+                                "Comments: also a\r\n comment\r\n"}
+                             ])
+    ].
+
+keywords_test_() ->
+    [ ?list_pair_test(fun rfc2822:keywords/1,
+                      [ {[[<<"abc">>]], <<"Keywords: abc\r\n">>},
+                        {[[<<"abc">>, <<"xyz">>]],
+                         <<"Keywords: abc xyz\r\n">>},
+                        {[[<<"abc">>, <<"xyz">>, <<"123">>]],
+                         <<"Keywords: abc xyz\r\n 123\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Resent fields (section 3.6.6) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: resent_date/1
-% TODO: resent_from/1
-% TODO: resent_sender/1
-% TODO: resent_to/1
-% TODO: resent_cc/1
-% TODO: resent_bcc/1
+resent_date_test_() ->
+    [ ?list_pair_test(fun rfc2822:resent_date/1,
+                      [ {#calender_time{year=1900, month=january, day=1,
+                                        hour=0, min=0, sec=0,
+                                        week_day=undefined, tz_diff=0},
+                         <<"Resent-Date: 1 Jan 1900 00:00:00 +0000\r\n">>}
+                      ])
+    ].
+
+resent_from_test_() ->
+    [ ?list_pair_test(fun rfc2822:resent_from/1,
+                      [ {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"Resent-From: <mike@atmosia.net>\r\n">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                     name= <<"\"Michael Blockley\"">>}],
+                         <<"Resent-From: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
+resent_sender_test_() ->
+    [ ?list_pair_test(fun rfc2822:resent_sender/1,
+                      [ {#name_addr{addr= <<"mike@atmosia.net">>},
+                         <<"Resent-Sender: <mike@atmosia.net>\r\n">>},
+                        {#name_addr{addr= <<"mike@atmosia.net">>,
+                                    name= <<"\"Michael Blockley\"">>},
+                         <<"Resent-Sender: \"Michael Blockley\" "
+                           "<mike@atmosia.net>\r\n">>}])
+    ].
+
+resent_to_test_() ->
+    [ ?list_pair_test(fun rfc2822:resent_to/1,
+                      [ {[[#name_addr{addr= <<"mike@atmosia.net">>}]],
+                         <<"Resent-To: <mike@atmosia.net>\r\n">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>}],
+                          [#name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}]],
+                         <<"Resent-To: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
+resent_cc_test_() ->
+    [ ?list_pair_test(fun rfc2822:resent_cc/1,
+                      [ {[[#name_addr{addr= <<"mike@atmosia.net">>}]],
+                         <<"Resent-Cc: <mike@atmosia.net>\r\n">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>}],
+                          [#name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}]],
+                         <<"Resent-Cc: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
+resent_bcc_test_() ->
+    [ ?list_pair_test(fun rfc2822:resent_bcc/1,
+                      [ {[], <<"Resent-Bcc:\r\n">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>}]],
+                         <<"Resent-Bcc: <mike@atmosia.net>\r\n">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>}],
+                          [#name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}]],
+                         <<"Resent-Bcc: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
 % TODO: resent_msg_id/1
+% NB: resent_msg_id/1 is buggy, there it a fix on a local branch on my work
+%     machine which I will push soon-ish
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Trace Fields (section 3.6.7) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: return_path/1
-% TODO: received/1
+return_path_test_() ->
+    [ ?string_list_pair_test(fun rfc2822:return_path/1,
+                             [ {"<mike@atmosia.net>",
+                                "Return-Path:<mike@atmosia.net>\r\n"},
+                               {"<>",
+                                "Return-Path:<>\r\n"}
+                             ])
+    ].
+
+path_test_() ->
+    [ ?string_list_test(fun rfc2822:path/1, ["<mike@atmosia.net>", "<>"]) ].
+
+received_test_() ->
+    [ ?list_pair_test(fun rfc2822:received/1,
+                      [ {{[{<<"this">>, <<"mike@atmosia.net">>}],
+                          #calender_time{year=1900, month=january, day=1,
+                                         hour=0, min=0, sec=0,
+                                         week_day=undefined, tz_diff=0}},
+                        <<"Received: this mike@atmosia.net; "
+                          "1 Jan 1900 00:00:00 +0000\r\n">>}
+                      ])
+    ].
+
+name_val_list_test_() ->
+    [ ?list_pair_test(fun rfc2822:name_val_list/1,
+                      [ {[{<<"this">>, <<"mike@atmosia.net">>},
+                          {<<"a123">>, <<"atmosia.net">>},
+                          {<<"a-xy-01">>, <<"atom">>},
+                          {<<"a-xy-02">>, [<<"mike@atmosia.net">>]},
+                          {<<"a-xy-03">>, [<<"mike@atmosia.net">>,
+                                           <<"bob@atmosia.net">>]}
+                         ], <<"this mike@atmosia.net "
+                              "a123 atmosia.net\r\n"
+                              " a-xy-01 atom "
+                              " a-xy-02 <mike@atmosia.net>\r\n"
+                              " a-xy-03 <mike@atmosia.net>\r\n"
+                              "         <bob@atmosia.net>">>
+                        }])
+    ].
+
+name_val_pair_test_() ->
+    [ ?list_pair_test(fun rfc2822:name_val_pair/1,
+                      [ {{<<"this">>, <<"mike@atmosia.net">>},
+                         <<"this mike@atmosia.net">>},
+                        {{<<"a123">>, <<"atmosia.net">>},
+                         <<"a123 atmosia.net">>},
+                        {{<<"a-xy-01">>, <<"atom">>},
+                         <<"a-xy-01 atom">>},
+                        {{<<"a-xy-01">>, [<<"mike@atmosia.net">>]},
+                         <<"a-xy-01 <mike@atmosia.net>">>},
+                        {{<<"a-xy-01">>, [<<"mike@atmosia.net">>,
+                                          <<"bob@atmosia.net">>]},
+                         <<"a-xy-01 <mike@atmosia.net> <bob@atmosia.net>">>}
+                      ])
+    ].
+
+item_name_test_() ->
+    [ ?string_list_test(fun rfc2822:item_name/1,
+                        [ "this", "a123", "a-xy-01" ])
+    ].
+
+item_value_test_() ->
+    [ ?string_list_test(fun rfc2822:item_value/1,
+                        [ "mike@atmosia.net",
+                          "atmosia.net",
+                          "atom" ]),
+      ?list_pair_test(fun rfc2822:item_value/1,
+                             [ {[<<"mike@atmosia.net">>],
+                                 <<"<mike@atmosia.net>">>},
+                               {[<<"mike@atmosia.net">>,
+                                 <<"bob@atmosia.net">>],
+                                <<"<mike@atmosia.net> <bob@atmosia.net>">>}
+                             ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Optional Fields (section 3.6.8) %%%

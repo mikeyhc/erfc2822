@@ -442,13 +442,12 @@ word(X) ->
 phrase(X) -> obs_phrase(X).
 
 %% match any non-whitespace, non-control US-ASCII character except for
-%% "\" and "\""
+%% "\" and """
 -spec utext(<<_:8,_:_*8>>) -> {byte(), binary()}.
 utext(X) ->
     UChar = fun(Y) when is_binary(Y) ->
                      <<H, T/binary>> = Y,
-                     if H == 9 orelse H == 10 orelse
-                        H == 13 orelse H == 32 orelse H == 33 orelse
+                     if H == 9 orelse H == 32 orelse H == 33 orelse
                         H >= 35 andalso H =< 91 orelse
                         H >= 93 andalso H =< 126 -> {H, T};
                         true -> throw({parse_error, expected,
@@ -1130,7 +1129,7 @@ keywords(X) ->
     F = fun(Y) ->
                 {R1, T1} = phrase(Y),
                 {R2, T2} = parserlang:many(Phrases, T1),
-                {<<R1/binary, R2/binary>>, T2}
+                {[R1|R2], T2}
         end,
     header("Keywords", F, X).
 
@@ -1140,40 +1139,40 @@ keywords(X) ->
 
 %% parse a "resent-date" header line and return the date it contains as a
 %% 'calender_time'.
--spec resent_date(<<_:112,_:_*8>>) -> {binary(), binary()}.
+-spec resent_date(<<_:112,_:_*8>>) -> {#calender_time{}, binary()}.
 resent_date(X) -> header("Resent-Date", fun date_time/1, X).
 
 %% parse a "resent-from" header line and return the 'mailbox_list'
 %% address(es) contained in it.
--spec resent_from(<<_:112,_:_*8>>) -> {[binary()], binary()}.
+-spec resent_from(<<_:112,_:_*8>>) -> {[#name_addr{}], binary()}.
 resent_from(X) -> header("Resent-From", fun mailbox_list/1, X).
 
 %% parse a "resent-sender" header line and return the 'mailbox' address
 %% contained in it.
--spec resent_sender(<<_:128,_:_*8>>) -> {binary(), binary()}.
+-spec resent_sender(<<_:128,_:_*8>>) -> {#name_addr{}, binary()}.
 resent_sender(X) -> header("Resent-Sender", fun mailbox/1, X).
 
 %% parse a "resent-to" header line and return the 'address_list'
 %% address(es) contained in it.
--spec resent_to(<<_:96,_:_*8>>) -> {[binary()], binary()}.
+-spec resent_to(<<_:96,_:_*8>>) -> {[#name_addr{}], binary()}.
 resent_to(X) -> header("Resent-To", fun address_list/1, X).
 
 %% parse a "resent-cc" header line and return the 'address_list'
 %% address(es) contained in it.
--spec resent_cc(<<_:96,_:_*8>>) -> {[binary()], binary()}.
+-spec resent_cc(<<_:96,_:_*8>>) -> {[#name_addr{}], binary()}.
 resent_cc(X) -> header("Resent-Cc", fun address_list/1, X).
 
 %% parse a "resent-bcc" header line and return the 'address_list'
 %% address(es) contained in it. (This list may be empty.)
--spec resent_bcc(<<_:104,_:_*8>>) -> {[binary()], binary()}.
+-spec resent_bcc(<<_:104,_:_*8>>) -> {[#name_addr{}], binary()}.
 resent_bcc(X) ->
     BccText = fun(Y) ->
                       {_, T1} = parserlang:optional(fun cfws/1, Y),
                       {<<>>, T1}
               end,
-    Options = fun(Y) -> parserlang:orparse([{rfc2822, address_list},
+    Options = fun(Y) -> parserlang:orparse([fun rfc2822:address_list/1,
                                             BccText], Y,
-                                           "Resent-Bcc: header line")
+                                           "Resent-Bcc header line")
               end,
     header("Resent-Bcc", Options, X).
 
@@ -1201,8 +1200,8 @@ path(X) ->
                        {_, T3} = parserlang:char($>, T2),
                        {<<$<, R/binary, $>>>, T3}
                end,
-    parserlang:orparse([PathText, {rfc2822, obs_path}], X,
-                       "return path spec").
+    {_, T} = parserlang:many(fun rfc2234:wsp/1, X),
+    parserlang:orparse([PathText, fun obs_path/1], T, "return path spec").
 
 %% parse a "received" header line and returns the 'name_val_list'
 %% followed by 'date_time' contained in it.
@@ -1255,7 +1254,7 @@ item_name(X) ->
     try
         {R1, T1} = rfc2234:alpha(X),
         {R2, T2} = parserlang:many(Choice, T1),
-        {parserlang:bin_join(R1, R2), T2}
+        {parserlang:bin_concat([R1|R2]), T2}
     catch
         {parse_error, expected, _} -> throw({parse_error, expected,
                                              "name of a name/value pair"})
