@@ -1563,6 +1563,7 @@ obs_angle_addr(X) ->
                 {_, T2} = parserlang:option(<<>>, fun obs_route/1, T1),
                 {Addr, T3} = addr_spec(T2),
                 {_, T4} = parserlang:char($>, T3),
+                % TODO: route is lost here
                 {parserlang:bin_concat([$<, Addr, $>]), T4}
         end,
     try
@@ -1580,7 +1581,7 @@ obs_route(X) ->
     F = fun(Y) ->
                 {R, T1} = obs_domain_list(Y),
                 {_, T2} = parserlang:char($:, T1),
-                {parserlang:bin_concat([$<, R, $>]), T2}
+                {R, T2}
         end,
     try
         unfold(F, X)
@@ -1606,7 +1607,7 @@ obs_domain_list(X) ->
     {_, T1} = parserlang:char($@, X),
     {R1, T2} = domain(T1),
     {R2, T3} = parserlang:many(F,T2),
-    {parserlang:bin_join(R1, R2), T3}.
+    {[R1|R2], T3}.
 
 %% parse the obsolete syntax of a 'local_part', which allowed for more
 %% liberal insertion of folding whitespace and comments. The actual
@@ -1652,8 +1653,7 @@ obs_domain(X) ->
 %% 2> obs_mbox_list(<<"joe@example.org">>).
 %% ** exception throw: {parse_error,expected,
 %%                                  "obsolete syntax for a list of mailboxes"}
-%% TODO: this work work as many current concats its args
--spec obs_mbox_list(<<_:8,_:_*8>>) -> {[binary()], binary()}.
+-spec obs_mbox_list(<<_:8,_:_*8>>) -> {[#name_addr{}], binary()}.
 obs_mbox_list(X) ->
     F = fun(Y) ->
                 {R, T1} = maybe_option(fun mailbox/1, Y),
@@ -1662,14 +1662,12 @@ obs_mbox_list(X) ->
         end,
     {R1, T1} = parserlang:many1(F, X),
     {R2, T2} = maybe_option(fun mailbox/1, T1),
-    {parserlang:bin_concat(lists:filter(fun(Y) -> Y =:= undefined end,
-                                        R1 ++ [R2])), T2}.
+    {lists:filter(fun(Y) -> Y =/= undefined end, R1 ++ [R2]), T2}.
 
 %% This parser is identical to 'obs_mbox_list' but parses a list of 'address'es
 %% rather than 'maiolbox'es. The main difference is that an 'address' may
 %% contain 'group's. Please note that as of now, the parser will return a
 %% simple list of addresses; the grouping information is lost.
-%% TODO: this work work as many current concats its args
 -spec obs_addr_list(<<_:8,_:_*8>>) -> {[binary()], binary()}.
 obs_addr_list(X) ->
     F = fun(Y) ->
@@ -1681,8 +1679,7 @@ obs_addr_list(X) ->
         end,
     {R1, T1} = parserlang:many(F, X),
     {R2, T2} = maybe_option(fun address/1, T1),
-    {parserlang:bin_concat(lists:filter(fun(Y) -> Y =:= undefined end,
-                                        R1 ++ [R2])), T2}.
+    {lists:filter(fun(Y) -> Y =/= undefined end, R1 ++ [R2]), T2}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete header fields (section 4.5) %%%

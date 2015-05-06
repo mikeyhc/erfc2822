@@ -1059,19 +1059,71 @@ obs_zone_test_() ->
 %%% Obsolete Addressing (section 4.4) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%obs_angle_addr_test_() ->
-%    [ ?list_pair_test(fun rfc2822:obs_angle_addr/1,
-%                      [ {<<"<mike@atmosia.net>">>,
-%                         <<"<@example1.org,@example2.org:mike@atmosia.net>">>}
-%                      ])
-%    ].
+obs_angle_addr_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_angle_addr/1,
+                      [ {<<"<mike@atmosia.net>">>,
+                         <<"<@example1.org,@example2.org:mike@atmosia.net>">>}
+                      ])
+    ].
 
-% TODO: obs_route/1
-% TODO: obs_local_part/1
-% TODO: obs_domain/1
-% TODO: obs_mbox_list/1
-% TODO: obs_addr_list/1
+obs_route_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_route/1,
+                      [ {[<<"example1.org">>],
+                         <<"@example1.org:">>},
+                        {[<<"example1.org">>, <<"example2.org">>],
+                         <<"@example1.org, @example2.org:">>}
+                      ])
+    ].
 
+obs_domain_list_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_domain_list/1,
+                      [ {[<<"example1.org">>],
+                         <<"@example1.org">>},
+                        {[<<"example1.org">>, <<"example2.org">>],
+                         <<"@example1.org, @example2.org">>}
+                      ])
+    ].
+
+obs_local_part_test_() ->
+    [ ?string_list_test(fun rfc2822:obs_local_part/1,
+                        [ "this", "this.that" ])
+    ].
+
+obs_domain_test_() ->
+    [ ?string_list_test(fun rfc2822:obs_domain/1,
+                        [ "this", "this.that" ])
+    ].
+
+obs_mbox_list_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_mbox_list/1,
+                      [ {[], <<",">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"mike@atmosia.net,">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"joe@example.com">>}],
+                         <<"mike@atmosia.net, joe@example.com">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>,
+                                     name= <<"\"Michael Blockley\"">>}],
+                         <<"\"Michael Blockley\" <mike@atmosia.net>,">>}
+                      ])
+    ].
+
+obs_addr_list_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_addr_list/1,
+                      [ {[], <<",">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>}]],
+                         <<"mike@atmosia.net,">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>}],
+                          [#name_addr{addr= <<"joe@example.com">>}]],
+                         <<"mike@atmosia.net, joe@example.com">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}]],
+                         <<"\"Michael Blockley\" <mike@atmosia.net>,">>},
+                        {[[#name_addr{addr= <<"mike@atmosia.net">>},
+                           #name_addr{addr= <<"joe@example.com">>}]],
+                         <<"group: <mike@atmosia.net>, <joe@example.com>;,">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete header fields (section 4.5) %%%
