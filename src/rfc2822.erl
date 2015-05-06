@@ -1587,7 +1587,7 @@ obs_route(X) ->
         unfold(F, X)
     catch
         {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "route of an obsolete angle"
+                                             "route of an obsolete angle "
                                              "address"})
     end.
 
@@ -1904,7 +1904,7 @@ obs_return(X) -> obs_header("Return-Path", fun path/1, X).
 
 %% match a 'received' header line but allow for the obsolete folding syntax.
 -spec obs_received(<<_:88,_:_*8>>) -> {[{binary(), binary()}], binary()}.
-obs_received(X) -> obs_header("Reveived", fun name_val_list/1, X).
+obs_received(X) -> obs_header("Received", fun name_val_list/1, X).
 
 %% match 'obs_angle_addr'
 -spec obs_path(<<_:24,_:_*8>>) -> {<<_:24,_:_*8>>, binary()}.

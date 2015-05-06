@@ -1072,7 +1072,10 @@ obs_route_test_() ->
                          <<"@example1.org:">>},
                         {[<<"example1.org">>, <<"example2.org">>],
                          <<"@example1.org, @example2.org:">>}
-                      ])
+                      ]),
+      ?_assertThrow({parse_error, expected,
+                     "route of an obsolete angle address"},
+                    rfc2822:obs_route(<<"\0">>))
     ].
 
 obs_domain_list_test_() ->
@@ -1135,23 +1138,60 @@ obs_addr_list_test_() ->
 %%% Obsolete origination date field (section 4.5.1) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_orig_date/1
+obs_orig_date_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_orig_date/1,
+                      [ {#calender_time{year=1900, month=january, day=1,
+                                        hour=0, min=0, sec=0,
+                                        tz_diff=0, week_day=undefined},
+                         <<"Date: 1 Jan 1900 00:00:00 +0000\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete Originator fields (section 4.5.2) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_from/1
-% TODO: obs_sender/1
-% TODO: obs_reply_to/1
+obs_from_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_from/1,
+                      [ {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"From: mike@atmosia.net\r\n">>} ])
+    ].
+
+obs_sender_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_sender/1,
+                      [ {#name_addr{addr= <<"mike@atmosia.net">>},
+                         <<"Sender: mike@atmosia.net\r\n">>} ])
+    ].
+
+obs_reply_to_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_reply_to/1,
+                      [ {[ #name_addr{addr= <<"mike@atmosia.net">>} ],
+                         <<"Reply-to: mike@atmosia.net\r\n">>} ])
+    ].
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete destination address fields (section 4.5.3) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_to/1
-% TODO: obs_cc/1
-% TODO: obs_bcc/1
+obs_to_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_to/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"To: mike@atmosia.net\r\n">>} ])
+    ].
+
+obs_cc_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_cc/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"Cc: mike@atmosia.net\r\n">>} ])
+    ].
+
+obs_bcc_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_bcc/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"Bcc: mike@atmosia.net\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete identification fields (section 4.5.4) %%%
@@ -1160,33 +1200,189 @@ obs_addr_list_test_() ->
 % TODO: obs_message_id/1
 % TODO: obs_in_reply_to/1
 % TODO: obs_references/1
+obs_message_id_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_message_id/1,
+                      [ {<<"<abc.1234@atmosia.net>">>,
+                         <<"Message-ID: <abc.1234@atmosia.net>\r\n">>},
+                        {<<"<\"xyzabc\"@[192.168.1.1]>">>,
+                         <<"Message-ID: <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
+
+obs_in_reply_to_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_in_reply_to/1,
+                      [ {[<<"<abc.1234@atmosia.net>">>],
+                         <<"In-Reply-To: <abc.1234@atmosia.net>\r\n">>},
+                        {[<<"<abc.1234@atmosia.net>">>,
+                          <<"<\"xyzabc\"@[192.168.1.1]>">>],
+                         <<"In-Reply-To: <abc.1234@atmosia.net>\r\n"
+                           "             <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
+
+
+
+obs_references_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_references/1,
+                      [ {[<<"<abc.1234@atmosia.net>">>],
+                         <<"References: <abc.1234@atmosia.net>\r\n">>},
+                        {[<<"<abc.1234@atmosia.net>">>,
+                          <<"<\"xyzabc\"@[192.168.1.1]>">>],
+                         <<"References: <abc.1234@atmosia.net>\r\n"
+                           "            <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete informational fields (section 4.5.5) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_subject/1
-% TODO: obs_comments/1
-% TODO: obs_keywords/1
+obs_subject_test_() ->
+    [ ?string_list_pair_test(fun rfc2822:obs_subject/1,
+                             [ {" this is a subject",
+                                "Subject: this is a subject\r\n"},
+                               {" also a\r\n subject",
+                                "Subject: also a\r\n subject\r\n"}
+                             ])
+    ].
+
+obs_comments_test_() ->
+    [ ?string_list_pair_test(fun rfc2822:obs_comments/1,
+                             [ {" this is a comment",
+                                "Comments: this is a comment\r\n"},
+                               {" also a\r\n comment",
+                                "Comments: also a\r\n comment\r\n"}
+                             ])
+    ].
+
+obs_keywords_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_keywords/1,
+                      [ {[[<<"abc">>]], <<"Keywords: abc,\r\n">>},
+                        {[[<<"abc">>], [<<"xyz">>]],
+                         <<"Keywords: abc, xyz\r\n">>},
+                        {[[<<"abc">>], [<<"xyz">>], [<<"123">>]],
+                         <<"Keywords: abc, xyz,\r\n 123\r\n">>},
+                        {[[<<"abc">>], [<<"xyz">>], [<<"123">>]],
+                         <<"Keywords: abc, xyz, 123\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete resent fields (section 4.5.6) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_resent_from/1
-% TODO: obs_resent_send/1
-% TODO: obs_resent_date/1
-% TODO: obs_resent_to/1
-% TODO: obs_resent_cc/1
-% TODO: obs_resent_bcc/1
-% TODO: obs_resent_mid/1
-% TODO: obs_resent_reply/1
+obs_resent_date_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_date/1,
+                      [ {#calender_time{year=1900, month=january, day=1,
+                                        hour=0, min=0, sec=0,
+                                        week_day=undefined, tz_diff=0},
+                         <<"Resent-Date: 1 Jan 1900 00:00:00 +0000\r\n">>}
+                      ])
+    ].
+
+obs_resent_from_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_from/1,
+                      [ {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"Resent-From: <mike@atmosia.net>\r\n">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                     name= <<"\"Michael Blockley\"">>}],
+                         <<"Resent-From: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
+obs_resent_sender_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_send/1,
+                      [ {#name_addr{addr= <<"mike@atmosia.net">>},
+                         <<"Resent-Sender: <mike@atmosia.net>\r\n">>},
+                        {#name_addr{addr= <<"mike@atmosia.net">>,
+                                    name= <<"\"Michael Blockley\"">>},
+                         <<"Resent-Sender: \"Michael Blockley\" "
+                           "<mike@atmosia.net>\r\n">>}])
+    ].
+
+obs_resent_to_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_to/1,
+                      [ {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"Resent-To: <mike@atmosia.net>\r\n">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}],
+                         <<"Resent-To: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
+obs_resent_cc_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_cc/1,
+                      [ {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"Resent-Cc: <mike@atmosia.net>\r\n">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}],
+                         <<"Resent-Cc: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
+obs_resent_bcc_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_bcc/1,
+                      [ {[], <<"Resent-Bcc:\r\n">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>}],
+                         <<"Resent-Bcc: <mike@atmosia.net>\r\n">>},
+                        {[#name_addr{addr= <<"mike@atmosia.net">>},
+                          #name_addr{addr= <<"mike@atmosia.net">>,
+                                      name= <<"\"Michael Blockley\"">>}],
+                         <<"Resent-Bcc: <mike@atmosia.net>, "
+                           "\"Michael Blockley\" <mike@atmosia.net>\r\n">>}
+                      ])
+    ].
+
+obs_resent_mid_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_mid/1,
+                      [ {<<"<abc.1234@atmosia.net>">>,
+                         <<"Resent-Message-ID: <abc.1234@atmosia.net>\r\n">>},
+                        {<<"<\"xyzabc\"@[192.168.1.1]>">>,
+                         <<"Resent-Message-ID: "
+                           "<\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete trace fields (section 4.5.7) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_return/1
-% TODO: obs_received/1
-% TODO: obs_path/1
-% TODO: obs_optional/1
+obs_return_test_() ->
+    [ ?string_list_pair_test(fun rfc2822:obs_return/1,
+                             [ {"<mike@atmosia.net>",
+                                "Return-Path: <mike@atmosia.net>\r\n"},
+                               {"<>", "Return-Path:<>\r\n"}
+                             ])
+    ].
+
+obs_path_test_() ->
+    [ ?string_list_test(fun rfc2822:obs_path/1,
+                        ["<mike@atmosia.net>"]) ].
+
+obs_received_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_received/1,
+                      [ {[{<<"this">>, <<"mike@atmosia.net">>}],
+                         <<"Received: this mike@atmosia.net\r\n">>}
+                      ])
+    ].
+
+obs_optional_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_optional/1,
+                      [{{<<"field-a">>, <<" a">>},
+                        <<"field-a: a\r\n">>},
+                       {{<<"field-b">>, <<" a\r\n b">>},
+                        <<"field-b: a\r\n b\r\n">>}
+                      ]),
+      ?_assertThrow({parse_error, expected,
+                     "optional (unspecified) header line"},
+                    rfc2822:optional_field(<<"\0">>)),
+      ?_assertThrow({parse_error, expected,
+                     "optional (unspecified) header line"},
+                    rfc2822:optional_field(<<"field-a: a">>))
+    ].
