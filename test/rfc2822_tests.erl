@@ -7,6 +7,7 @@
 -compile([export_all]).
 -include_lib("eunit/include/eunit.hrl").
 -include("calender_time.hrl").
+-include("message.hrl").
 -include("name_addr.hrl").
 -include("timediff.hrl").
 
@@ -539,7 +540,25 @@ dtext_test_() ->
 %%% Overall Message Syntax (section 3.5) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: message/1
+message_test_() ->
+    ?list_pair_test(fun rfc2822:message/1,
+                    [ {#message{
+                          fields=[{to,
+                                   [[#name_addr{addr= <<"bob@example.com">>}
+                                    ]]},
+                                  {from,
+                                   [#name_addr{name=
+                                               <<"\"Michael Blockley\"">>,
+                                               addr=
+                                               <<"mike@atmosia.net">>}]},
+                                  {subject, <<" Test Email">>}],
+                          body= <<"Test email">>},
+                       <<"To: bob@example.com\r\n"
+                         "From: \"Michael Blockley\" <mike@atmosia.net>\r\n"
+                         "Subject: Test Email\r\n"
+                         "\r\n"
+                         "Test email">>}
+                    ]).
 
 body_test_() -> [ ?_assertEqual({a,<<>>}, rfc2822:body(a)) ].
 
@@ -547,7 +566,18 @@ body_test_() -> [ ?_assertEqual({a,<<>>}, rfc2822:body(a)) ].
 %%% Field Definitions (section 3.6) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: fields/1
+fields_test_() ->
+    [ ?list_pair_test(fun rfc2822:fields/1,
+                      [ {[{to, [[#name_addr{addr= <<"bob@example.com">>}]]},
+                          {from, [#name_addr{addr= <<"mike@atmosia.net">>,
+                                             name=
+                                             <<"\"Michael Blockley\"">>}]},
+                          {subject, <<" Test Email">>}],
+                        <<"To: bob@example.com\r\n"
+                          "From: \"Michael Blockley\" <mike@atmosia.net>\r\n",
+                          "Subject: Test Email\r\n">>}
+                      ])
+    ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% The origination date field (section 3.6.1) %%%
@@ -1132,7 +1162,21 @@ obs_addr_list_test_() ->
 %%% Obsolete header fields (section 4.5) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_fields/1
+obs_fields_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_fields/1,
+                      [ {[{to, [[#name_addr{addr= <<"bob@example.com">>}]]},
+                          {from, [#name_addr{addr= <<"mike@atmosia.net">>,
+                                             name=
+                                             <<"\"Michael Blockley\"">>}]},
+                          {subject, <<" Test Email">>},
+                          {optional_field, <<"Optional">>, <<" optional">>}],
+                        <<"To: bob@example.com\r\n"
+                          "From: \"Michael Blockley\" <mike@atmosia.net>\r\n",
+                          "Subject: Test Email\r\n",
+                          "Optional: optional\r\n">>}
+                      ])
+    ].
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete origination date field (section 4.5.1) %%%
@@ -1197,9 +1241,6 @@ obs_bcc_test_() ->
 %%% Obsolete identification fields (section 4.5.4) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% TODO: obs_message_id/1
-% TODO: obs_in_reply_to/1
-% TODO: obs_references/1
 obs_message_id_test_() ->
     [ ?list_pair_test(fun rfc2822:obs_message_id/1,
                       [ {<<"<abc.1234@atmosia.net>">>,
@@ -1216,7 +1257,8 @@ obs_in_reply_to_test_() ->
                         {[<<"<abc.1234@atmosia.net>">>,
                           <<"<\"xyzabc\"@[192.168.1.1]>">>],
                          <<"In-Reply-To: <abc.1234@atmosia.net>\r\n"
-                           "             <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                           "             <\"xyzabc\"@[192.168.1.1]>\r\n">>},
+                        {[], <<"In-Reply-To: abc\r\n">>}
                       ])
     ].
 
@@ -1229,8 +1271,27 @@ obs_references_test_() ->
                         {[<<"<abc.1234@atmosia.net>">>,
                           <<"<\"xyzabc\"@[192.168.1.1]>">>],
                          <<"References: <abc.1234@atmosia.net>\r\n"
-                           "            <\"xyzabc\"@[192.168.1.1]>\r\n">>}
+                           "            <\"xyzabc\"@[192.168.1.1]>\r\n">>},
+                        {[], <<"References: abc\r\n">>}
                       ])
+    ].
+
+obs_id_left_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_id_left/1,
+                      [ {<<"abc.xyz">>, <<"abc.xyz">>},
+                        {<<"\"abcxyz\"">>, <<"\"abcxyz\"">>}
+                      ]),
+      ?_assertThrow({parse_error, expected, "left part of a message ID"},
+                    rfc2822:obs_id_left(<<"\0">>))
+    ].
+
+obs_id_right_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_id_right/1,
+                      [ {<<"abc.xyz">>, <<"abc.xyz">>},
+                        {<<"[192.168.1.1]">>, <<"[192.168.1.1]">>}
+                      ]),
+      ?_assertThrow({parse_error, expected, "right part of a message ID"},
+                    rfc2822:obs_id_right(<<"\0">>))
     ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1349,6 +1410,12 @@ obs_resent_mid_test_() ->
                       ])
     ].
 
+obs_resent_reply_test_() ->
+    [ ?list_pair_test(fun rfc2822:obs_resent_reply/1,
+                      [ {[[ #name_addr{addr= <<"mike@atmosia.net">>} ]],
+                         <<"Resent-Reply-to: mike@atmosia.net\r\n">>} ])
+    ].
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete trace fields (section 4.5.7) %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1381,8 +1448,8 @@ obs_optional_test_() ->
                       ]),
       ?_assertThrow({parse_error, expected,
                      "optional (unspecified) header line"},
-                    rfc2822:optional_field(<<"\0">>)),
+                    rfc2822:obs_optional(<<"\0">>)),
       ?_assertThrow({parse_error, expected,
                      "optional (unspecified) header line"},
-                    rfc2822:optional_field(<<"field-a: a">>))
+                    rfc2822:obs_optional(<<"field-a: a">>))
     ].

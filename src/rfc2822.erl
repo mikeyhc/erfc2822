@@ -908,8 +908,8 @@ message(X) ->
                    body(T1)
            end,
     {F, T1} = fields(X),
-    {B, _} = parserlang:option(<<>>, Body, T1),
-    #message{fields=F, body=B}.
+    {B, T} = parserlang:option(<<>>, Body, T1),
+    {#message{fields=F, body=B}, T}.
 
 %% a message body is just an unstructured sequence of characters.
 -spec body(binary()) -> {binary(), binary()}.
@@ -935,8 +935,7 @@ fields(X) ->
                                 subject, comments, keywords, orig_date,
                                 resent_date, resent_from, resent_sender,
                                 resent_to, resent_cc, resent_bcc,
-                                resent_msg_id, resent_reply_to, received,
-                                obs_received, optional_field ]],
+                                resent_msg_id, received, optional_field ]],
                         Y, "field")
               end,
     parserlang:many(Options, X).
@@ -1687,7 +1686,7 @@ obs_addr_list(X) ->
 
 %% a list of all of the obsolete fields
 -spec obs_fields(binary()) -> {{atom(), any()}, binary()}.
-obs_fields(X) ->
+obs_fields(X) when is_binary(X) ->
     MkField = fun(F, Y) ->
                       fun(A) ->
                               {R, T} = F(A),
@@ -1698,7 +1697,8 @@ obs_fields(X) ->
                      {{Name, Cont}, T} = obs_optional(Y),
                      {{optional_field, Name, Cont}, T}
              end,
-    FieldList = parserlang:orparse([MkField(fun obs_from/1, from),
+    FieldList = fun(Y) ->
+                parserlang:orparse([MkField(fun obs_from/1, from),
                                     MkField(fun obs_sender/1, sender),
                                     MkField(fun obs_return/1, return),
                                     MkField(fun obs_reply_to/1, reply_to),
@@ -1728,8 +1728,10 @@ obs_fields(X) ->
                                             resent_reply_to),
                                     MkField(fun obs_received/1, received),
                                     ObsOpt],
-                                   "obsolete field", X),
-    parserlang:many(FieldList, X).
+                                   Y, "obsolete field")
+                end,
+    parserlang:many(FieldList, X);
+obs_fields(X) -> error({badarg, X}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Obsolete origination date field (section 4.5.1) %%%
@@ -1915,6 +1917,7 @@ obs_path(X) -> obs_angle_addr(X).
 -spec obs_optional(<<_:40,_:_*8>>)
       -> {{<<_:8,_:_*8>>, <<_:8,_:_*8>>}, binary()}.
 obs_optional(X) ->
+    Err = {parse_error, expected, "optional (unspecified) header line"},
     try
         {N, T1} = field_name(X),
         {_, T2} = parserlang:many(fun rfc2234:wsp/1, T1),
@@ -1923,7 +1926,6 @@ obs_optional(X) ->
         {_, T5} = rfc2234:crlf(T4),
         {{N, B}, T5}
     catch
-        {parse_error, expected, _} -> throw({parse_error, expected,
-                                             "obsolete (unspecified) header"
-                                             " line"})
+        {parse_error, expected, _} -> throw(Err);
+        error:{badmatch, _} -> throw(Err)
     end.
