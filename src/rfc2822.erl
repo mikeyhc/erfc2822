@@ -123,7 +123,6 @@
          obs_return/1, obs_received/1, obs_path/1, obs_optional/1,
 
          % TESTING ONLY FUNCTIONS
-         % TODO: remove these
          bin_to_int/1, intersperse/2]).
 
 -type dow() :: monday | tuesday | wednesday | thursday | friday | saturday |
@@ -136,13 +135,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% return 'undefined' if the given parser doesn't match
--spec maybe_option(fun((binary()) -> {any(), binary}), binary())
-      -> {any(), binary()}.
+-spec maybe_option(fun((binary()) -> {X, binary}), binary()) -> {X, binary()}.
 maybe_option(F, A) -> parserlang:option(undefined,F,A).
 
 %% wraps the parser in optional cfws
--spec unfold(fun((binary()) -> {binary(), binary()}), binary())
-      -> {binary(), binary()}.
+-spec unfold(fun((binary()) -> {X, binary()}), binary()) -> {X, binary()}.
 unfold(F, A) ->
     {_, T1} = parserlang:optional(fun cfws/1, A),
     {Body, T2} = F(T1),
@@ -151,8 +148,10 @@ unfold(F, A) ->
 
 %% construct a parser for a message header line from the header
 %% name and a parser for the body
--spec header(<<_:8,_:_*8>>, fun((binary()) -> {any(), binary()}),
-             <<_:8,_:_*8>>) -> {any(), binary()}.
+-spec header(<<_:8,_:_*8>>, fun((binary()) -> {X, binary()}),
+             <<_:8,_:_*8>>) -> {X, binary()};
+            ([byte(), ...], fun((binary()) -> {X, binary()}),
+             <<_:8,_:_*8>>) -> {X, binary()}.
 header(N, F, A) when is_binary(N) ->
     HF = fun(X) -> parserlang:case_string(<<N/binary, $:>>, X) end,
     try
@@ -177,8 +176,10 @@ crlf_tail_fun() ->
     end.
 
 %% like 'header' but allows the obsolete white-space rules.
--spec obs_header(<<_:8,_:_*8>>, fun((binary()) -> {any(), binary()}),
-                 <<_:8,_:_*8>>) -> {any(), binary()}.
+-spec obs_header(<<_:8,_:_*8>>, fun((binary()) -> {X, binary()}),
+                 <<_:8,_:_*8>>) -> {X, binary()};
+                ([byte(),...], fun((binary()) -> {X, binary()}),
+                 <<_:8,_:_*8>>) -> {X, binary()}.
 obs_header(N, F, A) when is_list(N) -> obs_header(binary:list_to_bin(N), F, A);
 obs_header(N, F, A) ->
     H = fun(X) ->
@@ -249,7 +250,7 @@ quoted_pair(Text) -> error({badarg, Text}).
 
 %% match "folding whitespace". That is any combination of 'wsp' and 'crlf'
 %% followed by 'wsp'.
--spec fws(binary()) -> {[byte() | binary()], binary()}.
+-spec fws(binary()) -> {binary(), binary()}.
 fws(X) ->
     Blanks = fun(Y) -> parserlang:many1(fun rfc2234:wsp/1, Y) end,
     LineBreak = fun(Y) ->
@@ -326,8 +327,7 @@ cfws(X) ->
 %% or space. 'aom' and 'dot_atom' are made up of this.
 -spec atext(<<_:8,_:_*8>>) -> {byte(), binary()}.
 atext(X) ->
-    parserlang:orparse([{rfc2234, alpha},
-                        {rfc2234, digit},
+    parserlang:orparse([fun rfc2234:alpha/1, fun rfc2234:digit/1,
                         fun(Y) ->
                                 parserlang:oneof(<<"!#$%&'*+-/=?^_`{|}~">>, Y)
                         end], X,
@@ -438,7 +438,7 @@ word(X) ->
     unfold(Word, X).
 
 %% match either one or more 'word's or an 'obs_phrase'
--spec phrase(<<_:8,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
+-spec phrase(<<_:8,_:_*8>>) -> {[binary()], binary()}.
 phrase(X) -> obs_phrase(X).
 
 %% match any non-whitespace, non-control US-ASCII character except for
@@ -522,7 +522,7 @@ date_time(X) ->
 day_of_week(X) ->
     F = fun(Y) -> parserlang:optional(fun fws/1, Y) end,
     DayName = fun(Y) -> parserlang:between(F, F, fun day_name/1, Y) end,
-    parserlang:orparse([DayName, {rfc2822, obs_day_of_week}], X,
+    parserlang:orparse([DayName, fun obs_day_of_week/1], X,
                        "name of a day-of-the-week").
 
 %% this parser will take the abbreviated weekday name ("Mon", "Tue", ...)
@@ -555,7 +555,7 @@ name_atom_helper(String, Ret) ->
 %% this parser will match a date of the form "dd Month yyyy" and return a
 %% triple of of the form (Int, Month, Int) - corresponding to
 %% (year, month, day)
--spec date(<<_:48,_:_*8>>) -> {integer(), integer(), integer(), binary()}.
+-spec date(<<_:48,_:_*8>>) -> {integer(), month(), integer(), binary()}.
 date(X) ->
     try
         {D, T1} = day(X),
@@ -592,11 +592,11 @@ bin_to_int(L) -> lists:foldl(fun(X, Acc) -> Acc * 10 + X - $0 end, 0,
 month(X) ->
     H = fun(Y) -> parserlang:optional(fun fws/1, Y) end,
     Month = fun(Y) -> parserlang:between(H, H, fun month_name/1, Y) end,
-    parserlang:orparse([Month, {rfc2822, obs_month}], X, "month name").
+    parserlang:orparse([Month, fun obs_month/1], X, "month name").
 
 %% this parser will match the abbreviated month names ("Jan", "Feb", ...) and
 %% return the approriate month atom.
--spec month_name(<<_:16,_:_*8>>) -> month().
+-spec month_name(<<_:16,_:_*8>>) -> {month(), binary()}.
 month_name(X) ->
     parserlang:orparse([name_atom_helper("Jan", january),
                         name_atom_helper("Feb", feburary),
@@ -621,9 +621,8 @@ day_of_month(X) ->
 %% match a 1 or 2-digit number (day of month), recognizing both standard
 %% and obsolete folding syntax.
 -spec day(<<_:8,_:_*8>>) -> {integer(), binary()}.
-day(X) -> parserlang:orparse([{rfc2822, obs_day},
-                              {rfc2822, day_of_month}],
-                             X, "day of month").
+day(X) -> parserlang:orparse([fun obs_day/1, fun day_of_month/1], X,
+                             "day of month").
 
 %% this parser will match a 'time_of_day' specification followed by a
 %% 'zone'. It returns the tuple (timediff, int) corresponding to the return
@@ -701,7 +700,7 @@ zone(X) ->
                       {-(H*60+M), T3}
               end,
     F = fun(Y) -> parserlang:orparse([PosZone, NegZone], Y, "timezone") end,
-    parserlang:orparse([F, {rfc2822, obs_zone}], X, "timezone").
+    parserlang:orparse([F, fun obs_zone/1], X, "timezone").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Address Specification (section 3.4) %%%
@@ -901,7 +900,7 @@ dtext(X) -> error({badarg, X}).
 %% If you want to implement a really strict parser, you'll have to put
 %% the appropriate parser together yourself. You'll find this is rather
 %% easy to do. Refer to the 'fields' parser for further details.
--spec message(binary()) -> message().
+-spec message(binary()) -> {message(), binary()}.
 message(X) ->
     Body = fun(Y) ->
                    {_, T1} = rfc2234:crlf(Y),
@@ -925,7 +924,8 @@ body(X) -> {X, <<>>}.
 %%
 %% If you look at this parser you will find that it will attempt all
 %% other fields before falling back to a 'optional_field'.
--spec fields(binary()) -> {{atom(), any()}, binary()}.
+-spec fields(binary())
+      -> {[{atom(), any()} | {atom(), atom(), any()}], binary()}.
 fields(X) ->
     Options = fun(Y) ->
                       parserlang:orparse(
@@ -941,10 +941,11 @@ fields(X) ->
     parserlang:many(Options, X).
 
 %% helper fuction to construct lambdas
--spec field_helper(atom()) -> {{atom(), any()}, binary()}.
+-spec field_helper(atom()) -> fun((binary()) -> {{atom(), any()}, binary()}).
 field_helper(X) -> field_helper(X, X).
 
--spec field_helper(atom(), atom()) -> {{atom(), any()}, binary()}.
+-spec field_helper(atom(), atom())
+      -> fun((binary()) -> {{atom(), any()}, binary()}).
 field_helper(Type, F) ->
     fun(X) ->
             {H, T} = rfc2822:F(X),
@@ -957,7 +958,7 @@ field_helper(Type, F) ->
 
 %% parse a "date" header line and return the date it contains as a
 %% 'calender_time'.
--spec orig_date(<<_:64,_:_*8>>) -> {<<_:8,_:_*8>>, binary()}.
+-spec orig_date(<<_:64,_:_*8>>) -> {#calender_time{}, binary()}.
 orig_date(X) -> header("Date", fun date_time/1, X).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1398,7 +1399,7 @@ obs_utext(X) -> obs_text(X).
 
 %% match the obsolete "phrase" syntax, which - unlike 'phrase' - allows
 %% dots between tokens.
--spec obs_phrase(binary()) -> {binary(), binary()}.
+-spec obs_phrase(binary()) -> {[binary()], binary()}.
 obs_phrase(X) ->
     Choice = parserlang:choice([fun word/1,
                                 fun(Y) ->
@@ -1414,7 +1415,7 @@ obs_phrase(X) ->
 %% match a "phrase list" syntax and return the list of 'string's that make
 %% up the phrase. In contrast to a 'phrase', the 'obs_phrase_list'
 %% seperates individual words by commas.
--spec obs_phrase_list(binary()) -> {binary(), binary()}.
+-spec obs_phrase_list(binary()) -> {[[binary()]], binary()}.
 obs_phrase_list(X) ->
     ManyPhrase = fun(Y) ->
                          {R, T1} = parserlang:option(<<>>,
@@ -1685,7 +1686,8 @@ obs_addr_list(X) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% a list of all of the obsolete fields
--spec obs_fields(binary()) -> {{atom(), any()}, binary()}.
+-spec obs_fields(binary())
+      -> {[{atom(), any()} | {atom(), atom(), any()}], binary()}.
 obs_fields(X) when is_binary(X) ->
     MkField = fun(F, Y) ->
                       fun(A) ->
