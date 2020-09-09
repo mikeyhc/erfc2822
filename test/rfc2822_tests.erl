@@ -44,14 +44,9 @@
           ?_assertError({badarg, a}, Func(a))
         ]).
 
+select_n_random(0, _) -> [];
+select_n_random(_, []) -> [];
 select_n_random(N, L) ->
-    <<A:32, B:32, C:32>> = crypto:strong_rand_bytes(12),
-    rand:seed(A, B, C),
-    select_n_random_(N, L).
-
-select_n_random_(0, _) -> [];
-select_n_random_(_, []) -> [];
-select_n_random_(N, L) ->
     R = lists:nth(rand:uniform(length(L)), L),
     [R|select_n_random(N - 1, lists:delete(R, L))].
 
