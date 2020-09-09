@@ -7,4 +7,5 @@ install:
   - chmod +x rebar3
 script:
   - ./rebar3 version
-  - ./rebar3 as test dialyzer, xref, eunit, ct, cover, coveralls send
+  - ./rebar3 dialyzer
+  - ./rebar3 as test xref, eunit, ct, cover, coveralls send
