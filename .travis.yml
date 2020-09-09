@@ -1,2 +1,10 @@
 language: erlang
 sudo: false
+otp_release:
+  - 19.0
+install:
+  - wget https://s3.amazonaws.com/rebar3/rebar3
+  - chmod +x rebar3
+script:
+  - ./rebar3 version
+  - ./rebar3 as test dialyzer, xref, ct, cover, coveralls send

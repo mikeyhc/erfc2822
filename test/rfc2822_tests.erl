@@ -4,7 +4,6 @@
 %% author: mikeyhc <mikeyhc@atmosia.net>
 
 -module(rfc2822_tests).
--compile([export_all]).
 -include_lib("eunit/include/eunit.hrl").
 -include("calender_time.hrl").
 -include("message.hrl").
@@ -46,14 +45,14 @@
         ]).
 
 select_n_random(N, L) ->
-    <<A:32, B:32, C:32>> = crypto:rand_bytes(12),
-    random:seed(A, B, C),
+    <<A:32, B:32, C:32>> = crypto:strong_rand_bytes(12),
+    rand:seed(A, B, C),
     select_n_random_(N, L).
 
 select_n_random_(0, _) -> [];
 select_n_random_(_, []) -> [];
 select_n_random_(N, L) ->
-    R = lists:nth(random:uniform(length(L)), L),
+    R = lists:nth(rand:uniform(length(L)), L),
     [R|select_n_random(N - 1, lists:delete(R, L))].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
